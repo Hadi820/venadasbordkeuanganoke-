@@ -815,8 +815,10 @@ const App: React.FC = () => {
                 window.location.hash = '#/home';
             }
         } else {
-            const isAuthLandingPage = newRoute.startsWith('#/login') || newRoute === '#/home' || newRoute === '#';
-            if (isAuthLandingPage) {
+            // Allow authenticated users to stay on Home if they are there on initial load.
+            // Only redirect away from explicit auth landing pages like login or empty hash.
+            const shouldRedirectFrom = newRoute.startsWith('#/login') || newRoute === '#';
+            if (shouldRedirectFrom) {
                 window.location.hash = '#/dashboard';
             }
         }

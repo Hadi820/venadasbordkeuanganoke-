@@ -41,9 +41,9 @@ const PrintButton: React.FC<PrintButtonProps> = ({ areaId, label = 'Cetak', titl
   const handleClick = useCallback(() => {
     const anyWin = window as any;
 
-    // If a specific area is requested, try to ensure it is marked printable
+    // If a specific area is requested, try to ensure it is marked printable (temporary)
     let targetEl: HTMLElement | null = null;
-    let addedPrintableClass = false;
+    let addedTempClass = false;
     if (areaId) {
       targetEl = document.getElementById(areaId);
       if (!targetEl) {
@@ -55,18 +55,35 @@ const PrintButton: React.FC<PrintButtonProps> = ({ areaId, label = 'Cetak', titl
         }
         return;
       }
-      if (!targetEl.classList.contains('printable-area')) {
-        targetEl.classList.add('printable-area');
-        addedPrintableClass = true;
+      if (!targetEl.classList.contains('printable-area') && !targetEl.classList.contains('printable-area-temp')) {
+        targetEl.classList.add('printable-area-temp');
+        addedTempClass = true;
       }
     }
 
-    // Prefer the project helper if available to avoid fixed/transform print bugs
+    // If areaId provided and target exists, use JS fallback method per template
+    if (targetEl) {
+      // Toggle body printing to emulate :has() behavior for older browsers
+      document.body.classList.add('printing');
+      // small delay to allow reflow
+      setTimeout(() => {
+        try {
+          window.print();
+        } finally {
+          setTimeout(() => {
+            document.body.classList.remove('printing');
+            if (addedTempClass && targetEl) {
+              targetEl.classList.remove('printable-area-temp');
+            }
+          }, 400);
+        }
+      }, 50);
+      return;
+    }
+
+    // Full-page print: Prefer the project helper if available to avoid fixed/transform print bugs
     if (anyWin.__venaPrintFull) {
       anyWin.__venaPrintFull(title);
-      if (addedPrintableClass && targetEl) {
-        setTimeout(() => targetEl && targetEl.classList.remove('printable-area'), 1200);
-      }
       return;
     }
 
@@ -78,9 +95,6 @@ const PrintButton: React.FC<PrintButtonProps> = ({ areaId, label = 'Cetak', titl
     setTimeout(() => {
       if (!supportsHasSelector) {
         document.body.classList.remove('printing');
-      }
-      if (addedPrintableClass && targetEl) {
-        targetEl.classList.remove('printable-area');
       }
     }, 1000);
   }, [areaId, title, doSystemPrint]);

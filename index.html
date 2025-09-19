@@ -713,11 +713,13 @@
           visibility: hidden;
         }
         
-        .printable-area, .printable-area * {
+        .printable-area, .printable-area *, 
+        .printable-area-temp, .printable-area-temp * {
           visibility: visible;
         }
 
-        .printable-area {
+        .printable-area, 
+        .printable-area-temp {
           /* Use static positioning to allow natural multi-page flow */
           position: static !important;
           left: auto !important;
@@ -768,10 +770,11 @@
         .printable-area [style*="transform"] { transform: none !important; }
         .printable-area *, .printable-area *::before, .printable-area *::after { box-sizing: border-box !important; }
         
-        .printable-area .non-printable { display: none !important; }
-        .printable-area .overflow-x-auto { overflow-x: visible !important; }
+        .printable-area .non-printable, .printable-area-temp .non-printable { display: none !important; }
+        .printable-area .overflow-x-auto, .printable-area-temp .overflow-x-auto { overflow-x: visible !important; }
         
-        .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6 {
+        .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6,
+        .printable-area-temp h1, .printable-area-temp h2, .printable-area-temp h3, .printable-area-temp h4, .printable-area-temp h5, .printable-area-temp h6 {
           page-break-after: avoid !important;
           color: #000 !important;
         }
@@ -794,34 +797,42 @@
         .printable-area .text-brand-danger { color: #b22222 !important; }
 
         /* Table Styling for Print */
-        .printable-area table, .printable-area .responsive-table {
+        .printable-area table, .printable-area .responsive-table,
+        .printable-area-temp table, .printable-area-temp .responsive-table {
             width: 100% !important;
             border-collapse: collapse !important;
             page-break-inside: auto;
         }
-        .printable-area tbody, .printable-area .responsive-table tbody { page-break-inside: auto; }
-        .printable-area tbody tr, .printable-area .responsive-table tbody tr { break-inside: avoid; page-break-inside: avoid; }
-        .printable-area thead, .printable-area .responsive-table thead {
+        .printable-area tbody, .printable-area .responsive-table tbody,
+        .printable-area-temp tbody, .printable-area-temp .responsive-table tbody { page-break-inside: auto; }
+        .printable-area tbody tr, .printable-area .responsive-table tbody tr,
+        .printable-area-temp tbody tr, .printable-area-temp .responsive-table tbody tr { break-inside: avoid; page-break-inside: avoid; }
+        .printable-area thead, .printable-area .responsive-table thead,
+        .printable-area-temp thead, .printable-area-temp .responsive-table thead {
              display: table-header-group !important;
         }
-        .printable-area tfoot, .printable-area .responsive-table tfoot {
+        .printable-area tfoot, .printable-area .responsive-table tfoot,
+        .printable-area-temp tfoot, .printable-area-temp .responsive-table tfoot {
              display: table-footer-group !important;
         }
-        .printable-area tr, .printable-area .responsive-table tr {
+        .printable-area tr, .printable-area .responsive-table tr,
+        .printable-area-temp tr, .printable-area-temp .responsive-table tr {
              display: table-row !important;
              page-break-inside: avoid !important;
              margin-bottom: 0 !important;
              border: 0 !important;
              padding: 0 !important;
         }
-        .printable-area th, .printable-area td, .printable-area .responsive-table td {
+        .printable-area th, .printable-area td, .printable-area .responsive-table td,
+        .printable-area-temp th, .printable-area-temp td, .printable-area-temp .responsive-table td {
             display: table-cell !important;
             padding: 0.3cm !important;
             text-align: left !important;
             border-bottom: 1px solid #ccc !important;
             position: static !important;
         }
-        .printable-area .responsive-table td::before {
+        .printable-area .responsive-table td::before,
+        .printable-area-temp .responsive-table td::before {
             display: none !important;
         }
         .printable-area th {
@@ -830,15 +841,16 @@
         }
         
         /* Layout Helpers for Print - prefer block to allow natural page breaks */
-        .printable-area .grid { display: block !important; }
-        .printable-area .md\:grid-cols-3 { grid-template-columns: none !important; }
-        .printable-area .md\:grid-cols-2 { grid-template-columns: none !important; }
-        .printable-area .flex { display: block !important; }
-        .printable-area .sm\:flex-row { flex-direction: initial !important; }
-        .printable-area .sm\:w-2\/5 { width: 40% !important; }
-        .printable-area .avoid-break, .printable-area .totals-section, .printable-area .signature-section { page-break-inside: avoid !important; }
-        .printable-area .page-break-before { page-break-before: always !important; break-before: page !important; }
-        .printable-area .page-break-after { page-break-after: always !important; break-after: page !important; }
+        .printable-area .grid, .printable-area-temp .grid { display: block !important; }
+        .printable-area .md\:grid-cols-3, .printable-area-temp .md\:grid-cols-3 { grid-template-columns: none !important; }
+        .printable-area .md\:grid-cols-2, .printable-area-temp .md\:grid-cols-2 { grid-template-columns: none !important; }
+        .printable-area .flex, .printable-area-temp .flex { display: block !important; }
+        .printable-area .sm\:flex-row, .printable-area-temp .sm\:flex-row { flex-direction: initial !important; }
+        .printable-area .sm\:w-2\/5, .printable-area-temp .sm\:w-2\/5 { width: 40% !important; }
+        .printable-area .avoid-break, .printable-area .totals-section, .printable-area .signature-section, 
+        .printable-area-temp .avoid-break, .printable-area-temp .totals-section, .printable-area-temp .signature-section { page-break-inside: avoid !important; }
+        .printable-area .page-break-before, .printable-area-temp .page-break-before { page-break-before: always !important; break-before: page !important; }
+        .printable-area .page-break-after, .printable-area-temp .page-break-after { page-break-after: always !important; break-after: page !important; }
       }
 
       /* --- Enhanced Mobile Responsive Styles --- */
