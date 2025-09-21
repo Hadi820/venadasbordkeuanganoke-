@@ -3,14 +3,76 @@ import { Client, ClientStatus, ClientType } from '../types';
 
 const TABLE = 'clients';
 
-export async function listClients(): Promise<Client[]> {
+export async function listClients(options: { limit?: number; offset?: number } = {}): Promise<Client[]> {
+  const limit = Math.min(100, options.limit || 50); // Default 50, max 100
+  const offset = options.offset || 0;
+  
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
-    .order('since', { ascending: false });
+    .order('since', { ascending: false })
+    .range(offset, offset + limit - 1);
+    
   if (error) throw error;
-  // Supabase returns snake_case typically; ensure it matches our Client interface
   return (data || []).map(row => normalizeClient(row));
+}
+
+export async function listClientsPaginated(
+  page: number = 1, 
+  limit: number = 20,
+  searchQuery?: string,
+  filters?: {
+    status?: string;
+    clientType?: string;
+  }
+): Promise<{
+  clients: Client[];
+  total: number;
+  hasMore: boolean;
+}> {
+  const offset = (page - 1) * limit;
+  
+  // Build query with search and filters
+  let query = supabase.from(TABLE).select('*', { count: 'exact' });
+  let countQuery = supabase.from(TABLE).select('*', { count: 'exact', head: true });
+  
+  // Apply search
+  if (searchQuery && searchQuery.trim()) {
+    const searchTerm = `%${searchQuery.trim()}%`;
+    query = query.or(`name.ilike.${searchTerm},email.ilike.${searchTerm},phone.ilike.${searchTerm}`);
+    countQuery = countQuery.or(`name.ilike.${searchTerm},email.ilike.${searchTerm},phone.ilike.${searchTerm}`);
+  }
+  
+  // Apply filters
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+    countQuery = countQuery.eq('status', filters.status);
+  }
+  
+  if (filters?.clientType) {
+    query = query.eq('client_type', filters.clientType);
+    countQuery = countQuery.eq('client_type', filters.clientType);
+  }
+  
+  // Get total count
+  const { count, error: countError } = await countQuery;
+  if (countError) throw countError;
+  
+  // Get paginated data
+  const { data, error } = await query
+    .order('since', { ascending: false })
+    .range(offset, offset + limit - 1);
+    
+  if (error) throw error;
+  
+  const clients = (data || []).map(row => normalizeClient(row));
+  const total = count || 0;
+  
+  return {
+    clients,
+    total,
+    hasMore: (page * limit) < total
+  };
 }
 
 export async function getClient(id: string): Promise<Client | null> {

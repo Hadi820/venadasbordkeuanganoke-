@@ -456,7 +456,7 @@ export interface PublicPageConfig {
   template: 'classic' | 'modern' | 'gallery';
   title: string;
   introduction: string;
-  galleryImages: string[]; // Array of base64 image strings
+  galleryImages: string[]; // Array of base64 image strings or Supabase Storage URLs
 }
 
 export interface Profile {

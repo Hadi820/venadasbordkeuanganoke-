@@ -8,8 +8,34 @@ import { CalendarIcon, CreditCardIcon, MessageSquareIcon, ClockIcon, UsersIcon, 
 import StatCard from './StatCard';
 import SignaturePad from './SignaturePad';
 import HelpBox from './HelpBox';
+import PrintButton from './PrintButton';
 
-const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+const formatCurrency = (amount: number, options?: {
+    showDecimals?: boolean;
+    compact?: boolean;
+}) => {
+    const { showDecimals = true, compact = false } = options || {};
+    
+    // Indonesian currency formatting: Rp 10.416.183,30
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: showDecimals ? 2 : 0,
+        maximumFractionDigits: showDecimals ? 2 : 0,
+        notation: compact ? 'compact' : 'standard'
+    }).format(amount);
+};
+
+// Utility function for consistent currency display in documents
+const formatDocumentCurrency = (amount: number) => {
+    // Always show decimals for formal documents
+    return formatCurrency(amount, { showDecimals: true });
+};
+
+// Utility function for display in tables/lists (no decimals for cleaner look)
+const formatDisplayCurrency = (amount: number) => {
+    return formatCurrency(amount, { showDecimals: false });
+};
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
@@ -47,52 +73,66 @@ const FreelancerPortal: React.FC<FreelancerPortalProps> = ({ accessId, teamMembe
         const projectsBeingPaid = teamProjectPayments.filter(p => record.projectPaymentIds.includes(p.id));
     
         return (
-            <div id={`payment-slip-content-${record.id}`} className="printable-content bg-white text-black p-6 font-sans">
-                <header className="flex justify-between items-start pb-4 border-b border-slate-200">
-                    <div><h2 className="text-2xl font-bold text-slate-800">SLIP PEMBAYARAN</h2><p className="text-sm text-slate-500">No: {record.recordNumber}</p></div>
-                    <div className="text-right"><h3 className="font-bold text-lg text-slate-800">{profile.companyName}</h3></div>
-                </header>
-                <section className="my-6 space-y-1 text-sm">
-                    <p><strong>Dibayarkan Kepada:</strong> {freelancer.name}</p>
-                    <p><strong>Nomor Rekening:</strong> {freelancer.noRek}</p>
-                    <p><strong>Tanggal Bayar:</strong> {formatDate(record.date)}</p>
-                </section>
-                <section>
-                    <h4 className="font-semibold text-slate-600 mb-2 text-sm">Rincian Proyek:</h4>
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-100 print-bg-slate"><tr><th className="p-2 text-left">Proyek</th><th className="p-2 text-right">Fee</th></tr></thead>
-                        <tbody className="divide-y divide-slate-200">
-                            {projectsBeingPaid.map(p => (
-                                <tr key={p.id}>
-                                    <td className="p-2">{projects.find(proj => proj.id === p.projectId)?.projectName || 'N/A'}</td>
-                                    <td className="p-2 text-right">{formatCurrency(p.fee)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </section>
-                <section className="mt-6 flex justify-end">
-                    <div className="w-full sm:w-1/2 md:w-1/3 space-y-2 text-sm text-slate-700">
-                        <div className="flex justify-between font-bold text-base border-t border-slate-200 mt-2 pt-2 text-slate-900">
-                            <span>TOTAL DIBAYAR</span>
-                            <span>{formatCurrency(record.totalAmount)}</span>
+            <div id={`payment-slip-content-${record.id}`} className="printable-content bg-slate-50 font-sans text-slate-800 printable-area avoid-break">
+                <div className="max-w-4xl mx-auto bg-white p-8 sm:p-12 shadow-lg">
+                    <header className="flex justify-between items-start mb-12">
+                        <div>
+                            <h1 className="text-3xl font-extrabold text-slate-900">{profile.companyName}</h1>
+                            <p className="text-sm text-slate-500">{profile.address}</p>
                         </div>
-                    </div>
-                </section>
-                <footer className="mt-12 text-xs text-slate-500">
-                    <div className="flex justify-between items-end">
-                        <p>Terima kasih atas kerja samanya.</p>
-                        <div className="text-center">
-                            <p>Diverifikasi oleh,</p>
-                             {record.vendorSignature ? (
-                                <img src={record.vendorSignature} alt="Tanda Tangan" className="h-20 object-contain my-2" />
-                            ) : (
-                                <div className="h-20 flex items-center justify-center my-2 italic text-gray-400">Belum Ditandatangani</div>
-                            )}
-                            <p className="font-medium text-slate-900 mt-1 border-t pt-1">({profile.authorizedSigner || profile.companyName})</p>
+                        <div className="text-right">
+                            <h2 className="text-2xl font-bold uppercase text-slate-400 tracking-widest">Slip Pembayaran</h2>
+                            <p className="text-sm text-slate-500 mt-1">No: <span className="font-semibold text-slate-700">{record.recordNumber}</span></p>
+                            <p className="text-sm text-slate-500">Tanggal: <span className="font-semibold text-slate-700">{formatDate(record.date)}</span></p>
                         </div>
-                    </div>
-                </footer>
+                    </header>
+    
+                    <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 doc-header-grid">
+                        <div className="bg-slate-50 p-6 rounded-xl"><h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">Dibayarkan Kepada</h3><p className="font-bold text-slate-800">{freelancer.name}</p><p className="text-sm text-slate-600">{freelancer.role}</p><p className="text-sm text-slate-600">No. Rek: {freelancer.noRek}</p></div>
+                        <div className="bg-slate-50 p-6 rounded-xl"><h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">Dibayarkan Oleh</h3><p className="font-bold text-slate-800">{profile.companyName}</p><p className="text-sm text-slate-600">{profile.bankAccount}</p></div>
+                    </section>
+    
+                    <section>
+                        <h3 className="font-semibold text-slate-800 mb-3">Rincian Pembayaran</h3>
+                        <table className="w-full text-left responsive-table">
+                            <thead><tr className="border-b-2 border-slate-200"><th className="p-3 text-sm font-semibold uppercase text-slate-500">Proyek</th><th className="p-3 text-sm font-semibold uppercase text-slate-500">Peran</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right">Fee</th></tr></thead>
+                            <tbody className="divide-y divide-slate-200">
+                                {projectsBeingPaid.map(p => {
+                                    const project = projects.find(proj => proj.id === p.projectId);
+                                    return (
+                                        <tr key={p.id}>
+                                            <td data-label="Proyek" className="p-3 font-semibold text-slate-800">{project?.projectName || 'N/A'}</td>
+                                            <td data-label="Peran" className="p-3 text-slate-600">{project?.team.find(t => t.memberId === freelancer.id)?.role || freelancer.role}</td>
+                                            <td data-label="Fee" className="p-3 text-right text-slate-800">{formatDocumentCurrency(p.fee)}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </section>
+    
+                    <section className="mt-12 avoid-break totals-section">
+                        <div className="flex flex-col sm:flex-row justify-end">
+                            <div className="w-full sm:w-2/5 space-y-2 text-sm">
+                                <div className="flex justify-between font-bold text-xl text-slate-900 bg-slate-100 p-4 rounded-lg">
+                                    <span>TOTAL DIBAYAR</span>
+                                    <span>{formatDocumentCurrency(record.totalAmount)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <footer className="mt-12 pt-8 border-t-2 border-slate-200 avoid-break signature-section">
+                        <div className="flex justify-between items-end">
+                            <div></div>
+                            <div className="text-center w-full sm:w-2/5">
+                                <p className="text-sm text-slate-600">Diverifikasi oleh,</p>
+                                <div className="h-20 mt-2 flex items-center justify-center">{record.vendorSignature ? (<img src={record.vendorSignature} alt="Tanda Tangan" className="h-20 object-contain" />) : (<div className="h-20 flex items-center justify-center text-xs text-slate-400 italic border-b border-dashed w-full">Belum Ditandatangani</div>)}</div>
+                                <p className="text-sm font-semibold text-slate-800 mt-1 border-t-2 border-slate-300 pt-1">({profile.authorizedSigner || profile.companyName})</p>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
             </div>
         );
     };
@@ -129,10 +169,12 @@ const FreelancerPortal: React.FC<FreelancerPortalProps> = ({ accessId, teamMembe
                 </Modal>
                 <Modal isOpen={!!slipToView} onClose={() => setSlipToView(null)} title={`Slip Pembayaran: ${slipToView?.recordNumber}`} size="3xl">
                     {slipToView && <div className="printable-area">{renderPaymentSlipBody(slipToView)}</div>}
-                     <div className="mt-6 text-right non-printable">
-                        <button type="button" onClick={() => window.print()} className="button-primary inline-flex items-center gap-2">
-                             <PrinterIcon className="w-4 h-4"/> Cetak
-                        </button>
+                    <div className="mt-6 text-right non-printable">
+                        <PrintButton
+                            areaId={`payment-slip-content-${slipToView?.id}`}
+                            label="Cetak"
+                            title={`Slip Pembayaran - ${slipToView?.recordNumber || ''}`}
+                        />
                     </div>
                 </Modal>
             </div>
@@ -175,8 +217,8 @@ const DashboardTab: React.FC<{freelancer: TeamMember, projects: Project[], teamP
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="widget-animate" style={{ animationDelay: '200ms' }}><StatCard icon={<CreditCardIcon className="w-6 h-6"/>} title="Total Fee Diterima" value={formatCurrency(stats.paidFee)} iconBgColor="bg-green-500/20" iconColor="text-green-400" /></div>
-                <div className="widget-animate" style={{ animationDelay: '300ms' }}><StatCard icon={<AlertCircleIcon className="w-6 h-6"/>} title="Fee Belum Dibayar" value={formatCurrency(stats.unpaidFee)} iconBgColor="bg-red-500/20" iconColor="text-red-400" /></div>
+                <div className="widget-animate" style={{ animationDelay: '200ms' }}><StatCard icon={<CreditCardIcon className="w-6 h-6"/>} title="Total Fee Diterima" value={formatDisplayCurrency(stats.paidFee)} iconBgColor="bg-green-500/20" iconColor="text-green-400" /></div>
+                <div className="widget-animate" style={{ animationDelay: '300ms' }}><StatCard icon={<AlertCircleIcon className="w-6 h-6"/>} title="Fee Belum Dibayar" value={formatDisplayCurrency(stats.unpaidFee)} iconBgColor="bg-red-500/20" iconColor="text-red-400" /></div>
                 <div className="widget-animate" style={{ animationDelay: '400ms' }}><StatCard icon={<FolderKanbanIcon className="w-6 h-6"/>} title="Proyek Aktif" value={stats.activeProjects.toString()} iconBgColor="bg-blue-500/20" iconColor="text-blue-400" /></div>
                 <div className="widget-animate" style={{ animationDelay: '500ms' }}><StatCard icon={<CheckSquareIcon className="w-6 h-6"/>} title="Proyek Selesai" value={stats.completedProjects.toString()} iconBgColor="bg-indigo-500/20" iconColor="text-indigo-400" /></div>
             </div>
@@ -317,7 +359,7 @@ const PaymentsTab: React.FC<{freelancer: TeamMember, projects: Project[], teamPr
                         <tr key={p.id} className="widget-animate" style={{ animationDelay: `${index * 50}ms`}}>
                             <td className="p-3 font-semibold text-public-text-primary">{projects.find(proj => proj.id === p.projectId)?.projectName || 'N/A'}</td>
                             <td className="p-3 text-public-text-secondary">{formatDate(p.date)}</td>
-                            <td className="p-3 text-right font-medium text-public-text-primary">{formatCurrency(p.fee)}</td>
+                            <td className="p-3 text-right font-medium text-public-text-primary">{formatDisplayCurrency(p.fee)}</td>
                             <td className="p-3 text-center space-x-2">
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${p.status === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.status === 'Paid' ? 'Lunas' : 'Belum Lunas'}</span>
                                 {paymentRecord && (

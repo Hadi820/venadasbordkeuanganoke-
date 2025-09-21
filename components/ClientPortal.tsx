@@ -3,11 +3,37 @@ import { Client, Project, ClientFeedback, SatisfactionLevel, Contract, Transacti
 import { FolderKanbanIcon, ClockIcon, StarIcon, FileTextIcon, HomeIcon, CreditCardIcon, CheckCircleIcon, SendIcon, DownloadIcon, GalleryHorizontalIcon, MessageSquareIcon, PrinterIcon } from '../constants';
 import Modal from './Modal';
 import SignaturePad from './SignaturePad';
+import PrintButton from './PrintButton';
 import { createClientFeedback } from '../services/clientFeedback';
 import HelpBox from './HelpBox';
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
-const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+const formatCurrency = (amount: number, options?: {
+    showDecimals?: boolean;
+    compact?: boolean;
+}) => {
+    const { showDecimals = true, compact = false } = options || {};
+    
+    // Indonesian currency formatting: Rp 10.416.183,30
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: showDecimals ? 2 : 0,
+        maximumFractionDigits: showDecimals ? 2 : 0,
+        notation: compact ? 'compact' : 'standard'
+    }).format(amount);
+};
+
+// Utility function for consistent currency display in documents
+const formatDocumentCurrency = (amount: number) => {
+    // Always show decimals for formal documents
+    return formatCurrency(amount, { showDecimals: true });
+};
+
+// Utility function for display in tables/lists (no decimals for cleaner look)
+const formatDisplayCurrency = (amount: number) => {
+    return formatCurrency(amount, { showDecimals: false });
+};
 
 const getSatisfactionFromRating = (rating: number): SatisfactionLevel => {
     if (rating >= 5) return SatisfactionLevel.VERY_SATISFIED;
@@ -200,15 +226,15 @@ const DashboardTab: React.FC<{ client: Client; projects: Project[], profile: Pro
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 widget-animate" style={{ animationDelay: '300ms' }}>
                         <p className="text-sm text-slate-500 font-medium">Total Nilai Proyek</p>
-                        <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(financialSummary.totalValue)}</p>
+                        <p className="text-2xl font-bold text-slate-800 mt-1">{formatDisplayCurrency(financialSummary.totalValue)}</p>
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 widget-animate" style={{ animationDelay: '400ms' }}>
                         <p className="text-sm text-slate-500 font-medium">Total Terbayar</p>
-                        <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(financialSummary.totalPaid)}</p>
+                        <p className="text-2xl font-bold text-green-600 mt-1">{formatDisplayCurrency(financialSummary.totalPaid)}</p>
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 widget-animate" style={{ animationDelay: '500ms' }}>
                         <p className="text-sm text-slate-500 font-medium">Sisa Tagihan</p>
-                        <p className="text-2xl font-bold text-red-600 mt-1">{formatCurrency(financialSummary.totalDue)}</p>
+                        <p className="text-2xl font-bold text-red-600 mt-1">{formatDisplayCurrency(financialSummary.totalDue)}</p>
                     </div>
                 </div>
             </div>
@@ -237,22 +263,22 @@ const DashboardTab: React.FC<{ client: Client; projects: Project[], profile: Pro
                             <div className="mt-2 text-sm">
                                 <div className="flex justify-between">
                                     <span className="text-public-text-secondary">Harga Paket</span>
-                                    <span className="font-semibold text-public-text-primary">{formatCurrency(activePackage?.price || 0)}</span>
+                                    <span className="font-semibold text-public-text-primary">{formatDisplayCurrency(activePackage?.price || 0)}</span>
                                 </div>
                                 <div className="flex justify-between mt-1">
                                     <span className="text-public-text-secondary">Subtotal Add-On</span>
-                                    <span className="font-semibold text-public-text-primary">{formatCurrency(addOnsTotal)}</span>
+                                    <span className="font-semibold text-public-text-primary">{formatDisplayCurrency(addOnsTotal)}</span>
                                 </div>
                                 {Boolean(activeProject.discountAmount) && (
                                     <div className="flex justify-between mt-1">
                                         <span className="text-public-text-secondary">Diskon</span>
-                                        <span className="font-semibold text-red-700">- {formatCurrency(activeProject.discountAmount || 0)}</span>
+                                        <span className="font-semibold text-red-700">- {formatDisplayCurrency(activeProject.discountAmount || 0)}</span>
                                     </div>
                                 )}
                                 <hr className="my-2 border-public-border" />
                                 <div className="flex justify-between">
                                     <span className="font-bold text-public-text-primary">Total Proyek</span>
-                                    <span className="font-extrabold text-public-text-primary">{formatCurrency(activeProject.totalCost)}</span>
+                                    <span className="font-extrabold text-public-text-primary">{formatDisplayCurrency(activeProject.totalCost)}</span>
                                 </div>
                             </div>
                         </div>
@@ -263,7 +289,7 @@ const DashboardTab: React.FC<{ client: Client; projects: Project[], profile: Pro
                                     {activeProject.addOns.map(ao => (
                                         <li key={ao.id} className="flex items-center justify-between text-sm">
                                             <span className="text-public-text-primary">{ao.name}</span>
-                                            <span className="font-semibold text-public-text-primary">{formatCurrency(ao.price)}</span>
+                                            <span className="font-semibold text-public-text-primary">{formatDisplayCurrency(ao.price)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -274,9 +300,9 @@ const DashboardTab: React.FC<{ client: Client; projects: Project[], profile: Pro
                         <div className="p-4 bg-white rounded-xl border border-public-border">
                             <p className="text-sm font-semibold text-public-text-secondary mb-2">Ringkasan Pembayaran</p>
                             <div className="space-y-2 text-sm">
-                                <div className="flex justify-between"><span className="text-public-text-secondary">Total Proyek</span><span className="font-bold text-public-text-primary">{formatCurrency(activeProject.totalCost)}</span></div>
-                                <div className="flex justify-between"><span className="text-public-text-secondary">Sudah Dibayar</span><span className="font-semibold text-green-700">{formatCurrency(activeProject.amountPaid)}</span></div>
-                                <div className="flex justify-between"><span className="text-public-text-secondary">Sisa Pembayaran</span><span className="font-semibold text-red-700">{formatCurrency(activeProject.totalCost - activeProject.amountPaid)}</span></div>
+                                <div className="flex justify-between"><span className="text-public-text-secondary">Total Proyek</span><span className="font-bold text-public-text-primary">{formatDisplayCurrency(activeProject.totalCost)}</span></div>
+                                <div className="flex justify-between"><span className="text-public-text-secondary">Sudah Dibayar</span><span className="font-semibold text-green-700">{formatDisplayCurrency(activeProject.amountPaid)}</span></div>
+                                <div className="flex justify-between"><span className="text-public-text-secondary">Sisa Pembayaran</span><span className="font-semibold text-red-700">{formatDisplayCurrency(activeProject.totalCost - activeProject.amountPaid)}</span></div>
                             </div>
                         </div>
                     </div>
@@ -522,7 +548,7 @@ const FinanceTab: React.FC<{projects: Project[], contracts: Contract[], transact
                                         <p className="text-xs portal-text-secondary">{formatDate(tx.date)}</p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <p className="font-semibold text-green-600">{formatCurrency(tx.amount)}</p>
+                                        <p className="font-semibold text-green-600">{formatDisplayCurrency(tx.amount)}</p>
                                         <button onClick={() => onViewDocument({type: 'receipt', project, data: tx})} className="p-1 text-slate-500 hover:text-blue-600" title="Lihat Tanda Terima"><PrinterIcon className="w-5 h-5"/></button>
                                     </div>
                                 </div>
@@ -603,43 +629,32 @@ const FeedbackTab: React.FC<{client: Client, setClientFeedback: any, showNotific
 
 const DocumentViewerModal: React.FC<{viewingDocument: any, onClose: any, profile: Profile, packages: Package[], client: Client, onSignContract: any}> = ({viewingDocument, onClose, profile, packages, client, onSignContract}) => {
     const [isSigning, setIsSigning] = useState(false);
+    
+    // Debug effect to track isSigning state changes
+    useEffect(() => {
+        console.log('isSigning state changed to:', isSigning);
+    }, [isSigning]);
         
     const handleSaveSignature = (signature: string) => {
+        console.log('Saving signature:', signature?.substring(0, 50) + '...');
         if (viewingDocument?.type === 'contract') {
             onSignContract(viewingDocument.data.id, signature, 'client');
+            onClose(); // Close the document viewer modal after signing
         }
         setIsSigning(false);
     }
     
-    // Open a separate print window to avoid Chrome fixed/transform print bugs
-    const handlePrintFull = () => {
-        try {
-            const area = document.querySelector('.printable-area') as HTMLElement | null;
-            if (!area) { window.print(); return; }
-            const headStyles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-                .map(el => (el as HTMLElement).outerHTML)
-                .join('\n');
-            const baseHref = `${window.location.origin}${window.location.pathname}`;
-            const docTitle = viewingDocument ? `${viewingDocument.type} - ${viewingDocument.project?.projectName || ''}` : 'Dokumen';
-            const extraStyles = `
-                <style>
-                  @page { size: A4; margin: 12mm; }
-                  html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                  .print-a4 { width: 210mm; margin: 0 auto; }
-                </style>
-            `;
-            const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${docTitle}</title><base href="${baseHref}">${headStyles}${extraStyles}</head><body class="print-a4"><div class="printable-area">${area.innerHTML}</div></body></html>`;
-            const w = window.open('', '_blank', 'noopener,noreferrer');
-            if (!w) { window.print(); return; }
-            w.document.open();
-            w.document.write(html);
-            w.document.close();
-            w.focus();
-            w.onload = () => { try { w.print(); setTimeout(() => w.close(), 300); } catch { /* no-op */ } };
-        } catch {
-            window.print();
-        }
-    };
+    const handleSignClick = () => {
+        console.log('Sign button clicked, opening signature pad');
+        console.log('Current isSigning state:', isSigning);
+        console.log('Contract data:', viewingDocument?.data);
+        setIsSigning(true);
+        // Force a re-render after state change
+        setTimeout(() => {
+            console.log('isSigning state after timeout:', isSigning);
+        }, 100);
+    }
+    
     
      const renderDocumentBody = () => {
         if (!viewingDocument) return null;
@@ -652,49 +667,150 @@ const DocumentViewerModal: React.FC<{viewingDocument: any, onClose: any, profile
             const subtotal = project.totalCost + (project.discountAmount || 0);
             const remaining = project.totalCost - project.amountPaid;
             return (
-                <div id="invoice-content" className="p-1 print-a4">
-                    <div className="printable-content bg-slate-50 font-sans text-slate-800 printable-area">
-                        <div className="max-w-4xl mx-auto bg-white p-8 sm:p-12 shadow-lg">
-                            <header className="flex justify-between items-start mb-12">
+                <div id="invoice-content" className="p-2">
+                    <div className="printable-content print-invoice bg-slate-50 font-sans text-slate-800 printable-area">
+                        <div className="max-w-4xl mx-auto bg-white p-6 sm:p-8 lg:p-10 shadow-lg print:shadow-none print:p-0">{/* Optimized padding for print */}
+                            <header className="flex justify-between items-start mb-8 print:mb-6">
                                 <div>
-                                    <h1 className="text-3xl font-extrabold text-slate-900">{profile.companyName}</h1>
-                                    <p className="text-sm text-slate-500">{profile.address}</p>
-                                    <p className="text-sm text-slate-500">{profile.phone} | {profile.email}</p>
+                                    {profile.logoBase64 ? (
+                                        <img src={profile.logoBase64} alt="Company Logo" className="h-16 sm:h-20 max-w-[180px] sm:max-w-[200px] object-contain mb-3 print:h-16 print:mb-2" />
+                                    ) : (
+                                        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 print:text-2xl">{profile.companyName}</h1>
+                                    )}
+                                    <p className="text-sm text-slate-500 leading-tight">{profile.address}</p>
+                                    <p className="text-sm text-slate-500 leading-tight">{profile.phone} | {profile.email}</p>
                                 </div>
                                 <div className="text-right">
-                                    <h2 className="text-2xl font-bold uppercase text-slate-400 tracking-widest">Invoice</h2>
+                                    <h2 className="text-xl sm:text-2xl font-bold uppercase text-slate-400 tracking-widest print:text-xl">Invoice</h2>
                                     <p className="text-sm text-slate-500 mt-1">No: <span className="font-semibold text-slate-700">INV-{project.id.slice(-6)}</span></p>
-                                    <p className="text-sm text-slate-500">Tanggal: <span className="font-semibold text-slate-700">{new Date().toLocaleDateString('id-ID')}</span></p>
+                                    <p className="text-sm text-slate-500">Tanggal: <span className="font-semibold text-slate-700">{new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></p>
                                 </div>
                             </header>
 
-                            <section className="grid md:grid-cols-3 gap-6 mb-12">
-                                <div className="bg-slate-50 p-6 rounded-xl"><h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">Ditagihkan Kepada</h3><p className="font-bold text-slate-800">{client.name}</p><p className="text-sm text-slate-600">{client.email}</p><p className="text-sm text-slate-600">{client.phone}</p></div>
-                                <div className="bg-slate-50 p-6 rounded-xl"><h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">Diterbitkan Oleh</h3><p className="font-bold text-slate-800">{profile.companyName}</p><p className="text-sm text-slate-600">{profile.email}</p><p className="text-sm text-slate-600">{profile.phone}</p></div>
-                                <div className="bg-blue-600 text-white p-6 rounded-xl printable-bg-blue printable-text-white"><h3 className="text-xs font-semibold uppercase text-blue-200 mb-2">Sisa Tagihan</h3><p className="font-extrabold text-3xl tracking-tight">{formatCurrency(remaining)}</p><p className="text-sm text-blue-200 mt-1">Jatuh Tempo: {formatDate(project.date)}</p></div>
+                            <section className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-5 print:mb-4 doc-header-grid">
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-xl print:bg-slate-50"><h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">Ditagihkan Kepada</h3><p className="font-bold text-slate-800 break-words text-sm sm:text-base">{client.name}</p><p className="text-sm text-slate-600 break-words">{client.email}</p><p className="text-sm text-slate-600 break-words">{client.phone}</p></div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-xl print:bg-slate-50"><h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">Diterbitkan Oleh</h3><p className="font-bold text-slate-800 break-words text-sm sm:text-base">{profile.companyName}</p><p className="text-sm text-slate-600 break-words">{profile.email}</p><p className="text-sm text-slate-600 break-words">{profile.phone}</p></div>
                             </section>
 
-                            <section><table className="w-full text-left">
-                                <thead><tr className="border-b-2 border-slate-200"><th className="p-3 text-sm font-semibold uppercase text-slate-500">Deskripsi</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-center">Jml</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right">Harga</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right">Total</th></tr></thead>
-                                <tbody>
-                                    <tr><td className="p-3 align-top"><p className="font-semibold text-slate-800">{project.packageName}</p><p className="text-xs text-slate-500">{selectedPackage?.digitalItems.join(', ')}</p></td><td className="p-3 text-center align-top">1</td><td className="p-3 text-right align-top">{formatCurrency(selectedPackage?.price || 0)}</td><td className="p-3 text-right align-top">{formatCurrency(selectedPackage?.price || 0)}</td></tr>
-                                    {project.addOns.map(addon => (<tr key={addon.id}><td className="p-3 text-slate-600 align-top">- {addon.name}</td><td className="p-3 text-center align-top">1</td><td className="p-3 text-right align-top">{formatCurrency(addon.price)}</td><td className="p-3 text-right align-top">{formatCurrency(addon.price)}</td></tr>))}
+                            <section className="mb-8 print:mb-6">
+                                <div className="bg-blue-600 text-white p-5 sm:p-6 rounded-xl printable-bg-blue printable-text-white"><h3 className="text-xs font-semibold uppercase text-blue-200 mb-2">Sisa Tagihan</h3><p className="font-extrabold text-xl sm:text-2xl lg:text-3xl tracking-tight break-all print:text-2xl">{formatCurrency(remaining)}</p><p className="text-sm text-blue-200 mt-1">Jatuh Tempo: {new Date(project.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+                            </section>
+
+                            <section className="mt-6 print:mt-4 mb-6 print:mb-4"><table className="w-full text-left responsive-table invoice-table">
+                                <thead className="invoice-table-header">
+                                    <tr className="border-b-2 border-slate-200">
+                                        <th className="p-2 sm:p-3 text-xs sm:text-sm font-semibold uppercase text-slate-500 text-left print:p-2 print:text-xs" data-label="Deskripsi">Deskripsi</th>
+                                        <th className="p-2 sm:p-3 text-xs sm:text-sm font-semibold uppercase text-slate-500 text-center min-w-[40px] sm:min-w-[50px] print:p-2 print:text-xs" data-label="Jml">Jml</th>
+                                        <th className="p-2 sm:p-3 text-xs sm:text-sm font-semibold uppercase text-slate-500 text-right min-w-[80px] sm:min-w-[90px] print:p-2 print:text-xs" data-label="Harga">Harga Satuan</th>
+                                        <th className="p-2 sm:p-3 text-xs sm:text-sm font-semibold uppercase text-slate-500 text-right min-w-[80px] sm:min-w-[90px] print:p-2 print:text-xs" data-label="Total">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="invoice-table-body">
+                                    <tr className="border-b border-slate-100 hover:bg-slate-50">
+                                        <td data-label="Deskripsi" className="p-2 sm:p-3 align-top print:p-2">
+                                            <div className="invoice-item-description">
+                                                <p className="font-semibold text-slate-800 text-sm leading-tight sm:leading-relaxed print:text-sm">{project.packageName}</p>
+                                                {selectedPackage?.digitalItems && selectedPackage.digitalItems.length > 0 && (
+                                                    <p className="text-xs text-slate-500 mt-1 leading-tight sm:leading-relaxed">
+                                                        {selectedPackage.digitalItems.join(', ')}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td data-label="Jml" className="p-2 sm:p-3 text-center align-top print:p-2">
+                                            <span className="font-semibold text-slate-700 text-sm">1</span>
+                                        </td>
+                                        <td data-label="Harga" className="p-2 sm:p-3 text-right align-top print:p-2">
+                                            <span className="font-semibold text-slate-700 tabular-nums text-sm">
+                                                {formatCurrency(selectedPackage?.price || 0)}
+                                            </span>
+                                        </td>
+                                        <td data-label="Total" className="p-2 sm:p-3 text-right align-top print:p-2">
+                                            <span className="font-bold text-slate-800 tabular-nums text-sm">
+                                                {formatCurrency(selectedPackage?.price || 0)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {project.addOns.filter(addon => addon.name && addon.name.trim()).map((addon, index) => (
+                                        <tr key={addon.id || index} className="border-b border-slate-100 hover:bg-slate-50">
+                                            <td data-label="Deskripsi" className="p-2 sm:p-3 align-top print:p-2">
+                                                <div className="invoice-item-description">
+                                                    <p className="text-slate-600 text-sm leading-tight sm:leading-relaxed">
+                                                        - {addon.name}
+                                                    </p>
+                                                </div>
+                                            </td>
+                                            <td data-label="Jml" className="p-2 sm:p-3 text-center align-top print:p-2">
+                                                <span className="text-slate-600 text-sm">1</span>
+                                            </td>
+                                            <td data-label="Harga" className="p-2 sm:p-3 text-right align-top print:p-2">
+                                                <span className="text-slate-600 tabular-nums text-sm">
+                                                    {formatCurrency(addon.price)}
+                                                </span>
+                                            </td>
+                                            <td data-label="Total" className="p-2 sm:p-3 text-right align-top print:p-2">
+                                                <span className="font-semibold text-slate-700 tabular-nums text-sm">
+                                                    {formatCurrency(addon.price)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table></section>
 
-                            <section className="mt-12">
-                                <div className="flex justify-between">
-                                    <div className="w-2/5"><h4 className="font-semibold text-slate-600">Tanda Tangan</h4>{project.invoiceSignature ? (<img src={project.invoiceSignature} alt="Tanda Tangan" className="h-20 mt-2 object-contain" />) : (<div className="h-20 mt-2 flex items-center justify-center text-xs text-slate-400 italic border border-dashed rounded-lg">Belum Ditandatangani</div>)}</div>
-                                    <div className="w-2/5 space-y-2 text-sm">
-                                        <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-semibold text-slate-800">{formatCurrency(subtotal)}</span></div>
-                                        {project.discountAmount && project.discountAmount > 0 && (<div className="flex justify-between"><span className="text-slate-500">Diskon</span><span className="font-semibold text-green-600 print-text-green">-{formatCurrency(project.discountAmount)}</span></div>)}
-                                        <div className="flex justify-between"><span className="text-slate-500">Telah Dibayar</span><span className="font-semibold text-slate-800">-{formatCurrency(project.amountPaid)}</span></div>
-                                        <div className="flex justify-between font-bold text-lg text-slate-900 border-t-2 border-slate-300 pt-2 mt-2"><span>Sisa Tagihan</span><span>{formatCurrency(remaining)}</span></div>
+                            <section className="mt-8 sm:mt-10 print:mt-6 avoid-break totals-section">
+                                <div className="flex flex-col-reverse sm:flex-row justify-between gap-6 sm:gap-8 doc-footer-flex">
+                                    <div className="w-full sm:w-2/5 invoice-signature-section">
+                                        <h4 className="font-semibold text-slate-600 mb-2 sm:mb-3 text-sm">Tanda Tangan</h4>
+                                        {project.invoiceSignature ? (
+                                            <img src={project.invoiceSignature} alt="Tanda Tangan" className="h-16 sm:h-20 mt-2 object-contain border-b border-slate-300 print:h-16" />
+                                        ) : (
+                                            <div className="h-16 sm:h-20 mt-2 flex items-center justify-center text-xs text-slate-400 italic border border-dashed border-slate-300 rounded-lg print:h-16">
+                                                Belum Ditandatangani
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="w-full sm:w-2/5 space-y-2 sm:space-y-3 text-sm invoice-totals">
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-slate-500 font-medium">Subtotal</span>
+                                            <span className="font-semibold text-slate-800 tabular-nums">
+                                                {formatCurrency(subtotal)}
+                                            </span>
+                                        </div>
+                                        {project.discountAmount && project.discountAmount > 0 && (
+                                            <div className="flex justify-between items-center py-1">
+                                                <span className="text-slate-500 font-medium">Diskon</span>
+                                                <span className="font-semibold text-green-600 print-text-green tabular-nums">
+                                                    -{formatCurrency(project.discountAmount)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-slate-500 font-medium">Telah Dibayar</span>
+                                            <span className="font-semibold text-slate-800 tabular-nums">
+                                                -{formatCurrency(project.amountPaid)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t-2 border-slate-300">
+                                            <span className="font-bold text-base sm:text-lg text-slate-900 print:text-base">Sisa Tagihan</span>
+                                            <span className="font-bold text-base sm:text-lg text-slate-900 tabular-nums print:text-base">
+                                                {formatCurrency(remaining)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
-                            
-                            <footer className="mt-12 pt-8 border-t-2 border-slate-200"><p className="text-xs text-slate-500 text-center">Jika Anda memiliki pertanyaan, silakan hubungi kami di {profile.phone}</p><div className="w-full h-2 bg-blue-600 mt-6 rounded"></div></footer>
+
+                            <footer className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t-2 border-slate-200 avoid-break signature-section print:mt-6 print:pt-4">
+                                {profile.termsAndConditions && (
+                                    <div className="mb-6 sm:mb-8">
+                                        <h4 className="font-semibold text-slate-600 mb-2 text-sm">Syarat & Ketentuan</h4>
+                                        <p className="text-xs text-slate-500 whitespace-pre-wrap leading-relaxed">{profile.termsAndConditions.replace(/📜|💰|⏱|📦/g, '').replace(/\s*\*\*(.*?)\*\*\s*/g, '\n<strong>$1</strong>\n')}</p>
+                                    </div>
+                                )}
+                                <p className="text-xs text-slate-500 text-center leading-relaxed">Jika Anda memiliki pertanyaan, silakan hubungi kami di {profile.phone}</p>
+                                <div className="w-full h-1.5 sm:h-2 bg-blue-600 mt-4 sm:mt-6 rounded print:h-1 print:mt-3"></div>
+                            </footer>
                         </div>
                     </div>
                 </div>
@@ -703,7 +819,7 @@ const DocumentViewerModal: React.FC<{viewingDocument: any, onClose: any, profile
             const transaction = data as Transaction;
             return (
                 <div id="receipt-content" className="p-1 print-a4">
-                     <div className="printable-content bg-slate-50 font-sans text-slate-800 printable-area">
+                     <div className="printable-content print-receipt bg-slate-50 font-sans text-slate-800 printable-area">
                         <div className="max-w-md mx-auto bg-white p-8 shadow-lg rounded-xl">
                             <header className="text-center mb-8"><h1 className="text-2xl font-bold text-slate-900">KWITANSI PEMBAYARAN</h1><p className="text-sm text-slate-500">{profile.companyName}</p></header>
                             <div className="p-4 bg-green-500/10 border border-green-200 rounded-lg text-center mb-8 printable-bg-green-light"><p className="text-sm font-semibold text-green-700 print-text-green">PEMBAYARAN DITERIMA</p><p className="text-3xl font-bold text-green-800 print-text-green mt-1">{formatCurrency(transaction.amount)}</p></div>
@@ -724,7 +840,7 @@ const DocumentViewerModal: React.FC<{viewingDocument: any, onClose: any, profile
                 );
             }
              return (
-                <div className="printable-content bg-white text-black p-8 font-serif leading-relaxed text-sm">
+                <div className="printable-content print-contract bg-white text-black p-8 font-serif leading-relaxed text-sm">
                     <h2 className="text-xl font-bold text-center mb-1">SURAT PERJANJIAN KERJA SAMA</h2>
                     <h3 className="text-lg font-bold text-center mb-6">JASA {project.projectType.toUpperCase()}</h3>
                     <p>Pada hari ini, {formatDate(contract.signingDate)}, bertempat di {contract.signingLocation}, telah dibuat dan disepakati perjanjian kerja sama antara:</p>
@@ -803,7 +919,7 @@ const DocumentViewerModal: React.FC<{viewingDocument: any, onClose: any, profile
             <Modal isOpen={!!viewingDocument} onClose={onClose} title={viewingDocument ? `${viewingDocument.type.charAt(0).toUpperCase() + viewingDocument.type.slice(1)}: ${viewingDocument.project.projectName}` : ''} size="4xl">
                  {viewingDocument && (
                      <div>
-                        <div className="printable-area max-h-[65vh] overflow-y-auto pr-4">{renderDocumentBody()}</div>
+                        <div id="invoice" className="printable-area max-h-[65vh] overflow-y-auto pr-4">{renderDocumentBody()}</div>
                          <div className="mt-6 flex justify-between items-center non-printable border-t border-public-border pt-4">
                             {viewingDocument.type === 'contract' && (
                                 <div className="text-sm">
@@ -816,22 +932,97 @@ const DocumentViewerModal: React.FC<{viewingDocument: any, onClose: any, profile
                                 </div>
                             )}
                             <div className="space-x-2">
+                                {(() => {
+                                    console.log('Checking signature button visibility:', {
+                                        type: viewingDocument.type,
+                                        clientSignature: viewingDocument.data.clientSignature,
+                                        shouldShow: viewingDocument.type === 'contract' && !viewingDocument.data.clientSignature
+                                    });
+                                    return null;
+                                })()}
                                 {viewingDocument.type === 'contract' && !viewingDocument.data.clientSignature && (
-                                    <button onClick={() => setIsSigning(true)} className="button-primary">
+                                    <button 
+                                        onClick={handleSignClick} 
+                                        className="button-primary"
+                                        style={{ zIndex: 1000 }}
+                                    >
                                         Tanda Tangani Kontrak
                                     </button>
                                 )}
-                                <button type="button" onClick={handlePrintFull} className="button-secondary inline-flex items-center gap-2">
-                                    <PrinterIcon className="w-4 h-4"/> Cetak / Simpan PDF
-                                </button>
+                                <PrintButton 
+                                    areaId="invoice"
+                                    label="Cetak / Simpan PDF"
+                                    title={viewingDocument ? `${viewingDocument.type} - ${viewingDocument.project?.projectName || ''}` : 'Dokumen'}
+                                    directPrint={true}
+                                    className="button-secondary inline-flex items-center gap-2"
+                                >
+                                    <PrinterIcon className="w-4 h-4"/>
+                                </PrintButton>
                             </div>
                         </div>
                      </div>
                  )}
              </Modal>
-             <Modal isOpen={isSigning} onClose={() => setIsSigning(false)} title="Bubuhkan Tanda Tangan Anda">
-                <SignaturePad onSave={handleSaveSignature} onClose={() => setIsSigning(false)} />
-            </Modal>
+             <div 
+                className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4 transition-all duration-300 ${
+                    isSigning ? 'z-[60] opacity-100 pointer-events-auto' : 'z-[-1] opacity-0 pointer-events-none'
+                }`}
+                style={{
+                    display: isSigning ? 'flex' : 'none', // Force display control
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: isSigning ? 9999 : -1
+                }}
+                onClick={(e) => {
+                    if (e.target === e.currentTarget) {
+                        console.log('Closing signature modal by clicking outside');
+                        setIsSigning(false);
+                    }
+                }}
+            >
+                <div 
+                    className={`bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col transform transition-all duration-300 ${
+                        isSigning ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+                    }`}
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                        <h3 className="text-xl font-semibold text-gray-900">Bubuhkan Tanda Tangan Anda</h3>
+                        <button 
+                            onClick={() => {
+                                console.log('Closing signature modal via X button');
+                                setIsSigning(false);
+                            }} 
+                            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="p-6 flex-1 overflow-y-auto">
+                        <div className="w-full min-h-[400px]">
+                            <div className="mb-4 text-center">
+                                <p className="text-sm text-gray-600">Silakan tanda tangani kontrak ini untuk melanjutkan</p>
+                                <p className="text-xs text-blue-600 mt-2">Debug: isSigning = {isSigning.toString()}</p>
+                            </div>
+                            <SignaturePad 
+                                onSave={handleSaveSignature} 
+                                onClose={() => {
+                                    console.log('Signature pad cancelled');
+                                    setIsSigning(false);
+                                }} 
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
         </>
     );
 }

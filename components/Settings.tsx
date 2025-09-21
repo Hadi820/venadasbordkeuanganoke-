@@ -6,6 +6,7 @@ import { PencilIcon, PlusIcon, Trash2Icon, KeyIcon, UsersIcon, ListIcon, FolderK
 import { NAV_ITEMS } from '../constants';
 import { upsertProfile } from '../services/profile';
 import { createUser, updateUser, deleteUser } from '../services/users';
+import { uploadGalleryImage, deleteGalleryImage } from '../services/storage';
 
 // Helper Component for Toggle Switches
 const ToggleSwitch: React.FC<{ enabled: boolean; onChange: () => void; id?: string }> = ({ enabled, onChange, id }) => (
@@ -342,26 +343,70 @@ const Settings: React.FC<SettingsProps> = ({ profile, setProfile, transactions, 
     const handleGalleryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const files = Array.from(e.target.files) as File[];
-            const base64Promises = files.map((file: File) => toBase64(file));
-            const base64Images = await Promise.all(base64Promises);
-            setProfile(prev => ({
-                ...prev,
-                publicPageConfig: {
-                    ...prev.publicPageConfig,
-                    galleryImages: [...prev.publicPageConfig.galleryImages, ...base64Images]
+            
+            // Validate file sizes and types
+            for (const file of files) {
+                if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                    alert(`File ${file.name} terlalu besar. Maksimal 10MB per file.`);
+                    return;
                 }
-            }));
+                if (!file.type.startsWith('image/')) {
+                    alert(`File ${file.name} bukan gambar yang valid.`);
+                    return;
+                }
+            }
+            
+            try {
+                // Upload files to Supabase Storage
+                const uploadPromises = files.map((file: File) => uploadGalleryImage(file));
+                const uploadedUrls = await Promise.all(uploadPromises);
+                
+                // Update local state
+                const updatedProfile = {
+                    ...profile,
+                    publicPageConfig: {
+                        ...profile.publicPageConfig,
+                        galleryImages: [...profile.publicPageConfig.galleryImages, ...uploadedUrls]
+                    }
+                };
+                
+                // Save to database
+                const savedProfile = await upsertProfile(updatedProfile);
+                setProfile(savedProfile);
+                
+                alert(`Berhasil mengunggah ${files.length} gambar ke galeri.`);
+            } catch (error) {
+                console.error('Error uploading gallery images:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                alert(`Gagal mengunggah gambar galeri: ${errorMessage}`);
+            }
         }
     };
 
-    const removeGalleryImage = (index: number) => {
-        setProfile(prev => ({
-            ...prev,
-            publicPageConfig: {
-                ...prev.publicPageConfig,
-                galleryImages: prev.publicPageConfig.galleryImages.filter((_, i) => i !== index)
+    const removeGalleryImage = async (index: number) => {
+        const imageToRemove = profile.publicPageConfig.galleryImages[index];
+        
+        try {
+            // Delete from Supabase Storage if it's a URL (not base64)
+            if (imageToRemove && !imageToRemove.startsWith('data:')) {
+                await deleteGalleryImage(imageToRemove);
             }
-        }));
+            
+            // Update local state and save to database
+            const updatedProfile = {
+                ...profile,
+                publicPageConfig: {
+                    ...profile.publicPageConfig,
+                    galleryImages: profile.publicPageConfig.galleryImages.filter((_, i) => i !== index)
+                }
+            };
+            
+            const savedProfile = await upsertProfile(updatedProfile);
+            setProfile(savedProfile);
+        } catch (error) {
+            console.error('Error removing gallery image:', error);
+            alert('Gagal menghapus gambar dari galeri.');
+        }
     };
 
 

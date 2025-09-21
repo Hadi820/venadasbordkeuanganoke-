@@ -47,7 +47,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, users }) => {
         setTimeout(() => {
             const user = users.find(u => u.email === email && u.password === password);
             if (user) {
-                onLoginSuccess(user);
+                // Use requestIdleCallback or setTimeout to ensure the state update happens in the next tick
+                setTimeout(() => {
+                    onLoginSuccess(user);
+                }, 0);
             } else {
                 setError('Username atau kata sandi salah.');
             }

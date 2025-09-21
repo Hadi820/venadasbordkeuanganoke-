@@ -58,9 +58,22 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, project, client,
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
-            <div 
-                className="bg-brand-surface text-brand-text-primary rounded-2xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col border border-brand-border"
+        <div
+            className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 chat-modal-overlay"
+            onClick={onClose}
+            style={{
+                paddingTop: 'calc(1rem + var(--safe-area-inset-top, 0px))',
+                paddingBottom: 'calc(1rem + var(--safe-area-inset-bottom, 0px))',
+                paddingLeft: 'calc(1rem + var(--safe-area-inset-left, 0px))',
+                paddingRight: 'calc(1rem + var(--safe-area-inset-right, 0px))',
+            }}
+        >
+            <div
+                className="bg-brand-surface text-brand-text-primary rounded-2xl shadow-2xl w-full max-w-lg flex flex-col border border-brand-border chat-modal-dialog"
+                style={{
+                    height: 'calc(80vh - var(--safe-area-inset-bottom, 0px))',
+                    maxHeight: 'calc(100vh - 2rem - var(--safe-area-inset-bottom, 0px))'
+                }}
                 onClick={e => e.stopPropagation()}
             >
                 <div className="p-4 border-b border-brand-border flex-shrink-0">
@@ -68,7 +81,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, project, client,
                     <p className="text-sm text-brand-text-secondary">Proyek: {project.projectName}</p>
                 </div>
                 
-                <div className="flex-grow p-4 overflow-y-auto space-y-4">
+                <div className="flex-grow p-4 overflow-y-auto space-y-4 chat-modal-messages">
                     {(project.chatHistory || []).map(msg => (
                         <div key={msg.id} className={`flex items-end gap-2 ${msg.sender === 'vendor' ? 'justify-end' : 'justify-start'}`}>
                             {msg.sender === 'client' && (
@@ -84,7 +97,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, project, client,
                     <div ref={messagesEndRef} />
                 </div>
                 
-                 <div className="p-4 border-t border-brand-border flex-shrink-0">
+                 <div className="p-4 border-t border-brand-border flex-shrink-0 chat-modal-input-area">
                     <div className="mb-2">
                         <label className="text-xs font-semibold text-brand-text-secondary">Gunakan Template Pesan:</label>
                         <div className="flex flex-wrap gap-2 mt-1">
@@ -121,4 +134,30 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, project, client,
     );
 };
 
-export default ChatModal;
+        <style>{`
+            /* Mobile-specific styles for ChatModal */
+            @media (max-width: 640px) {
+                .chat-modal-overlay {
+                    /* Account for bottom navigation bar */
+                    padding-bottom: calc(5rem + var(--safe-area-inset-bottom, 0px)) !important;
+                }
+
+                .chat-modal-dialog {
+                    /* Adjust height to prevent overlap with bottom nav */
+                    height: calc(75vh - var(--safe-area-inset-bottom, 0px)) !important;
+                    max-height: calc(100vh - 8rem - var(--safe-area-inset-bottom, 0px)) !important;
+                }
+
+                .chat-modal-input-area {
+                    /* Ensure input area is accessible above keyboard */
+                    padding-bottom: var(--safe-area-inset-bottom, 0px);
+                }
+            }
+
+            /* iOS specific optimizations */
+            @supports (-webkit-touch-callout: none) {
+                .chat-modal-messages {
+                    -webkit-overflow-scrolling: touch;
+                }
+            }
+        `}</style>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import PrintButton from './PrintButton';
 import { Contract, Client, Project, Profile, NavigationAction, Package } from '../types';
 import PageHeader from './PageHeader';
 import Modal from './Modal';
@@ -7,8 +8,47 @@ import StatCard from './StatCard';
 import { PlusIcon, EyeIcon, PencilIcon, Trash2Icon, PrinterIcon, QrCodeIcon, FileTextIcon, ClockIcon, CheckSquareIcon, DollarSignIcon } from '../constants';
 import { createContract as createContractRow, updateContract as updateContractRow, deleteContract as deleteContractRow } from '../services/contracts';
 
-const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+const formatCurrency = (amount: number, options?: {
+    showDecimals?: boolean;
+    compact?: boolean;
+    currencySymbol?: boolean;
+    thousandsSeparator?: boolean;
+}) => {
+    const { showDecimals = true, compact = false, currencySymbol = true, thousandsSeparator = true } = options || {};
+
+    // Handle edge cases and provide flexible formatting
+    if (!isFinite(amount)) {
+        return currencySymbol ? 'Rp 0' : '0';
+    }
+
+    // Use manual formatting for better control over separators
+    if (!thousandsSeparator) {
+        const cleanAmount = Math.abs(amount);
+        const numberPart = cleanAmount.toLocaleString('id-ID', {
+            minimumFractionDigits: showDecimals ? 2 : 0,
+            maximumFractionDigits: showDecimals ? 2 : 0
+        });
+        return currencySymbol ? `Rp ${numberPart}` : numberPart;
+    }
+
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: showDecimals ? 2 : 0,
+        maximumFractionDigits: showDecimals ? 2 : 0,
+        notation: compact ? 'compact' : 'standard'
+    }).format(amount);
+};
+
+// Utility function for consistent currency display in documents
+const formatDocumentCurrency = (amount: number) => {
+    // Always show clean format for formal documents
+    return formatCurrency(amount, { showDecimals: false });
+};
+
+// Utility function for display in tables/lists (no decimals for cleaner look)
+const formatDisplayCurrency = (amount: number) => {
+    return formatCurrency(amount, { showDecimals: false });
 };
 
 const formatDate = (dateString: string) => {
@@ -255,16 +295,22 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
     };
     
     const handleSaveSignature = async (signatureDataUrl: string) => {
+        console.log('handleSaveSignature called with signature:', signatureDataUrl.substring(0, 50) + '...');
         if (selectedContract) {
             try {
+                console.log('Updating contract signature for contract ID:', selectedContract.id);
                 const updated = await updateContractRow(selectedContract.id, { vendorSignature: signatureDataUrl });
+                console.log('Contract updated successfully:', updated);
                 onSignContract(selectedContract.id, signatureDataUrl, 'vendor');
                 setSelectedContract(updated);
                 setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+                console.log('Signature saved successfully');
             } catch (err: any) {
                 console.error('[Supabase][contracts.signature] error:', err);
                 alert(`Gagal menyimpan tanda tangan ke database. ${err?.message || 'Coba lagi.'}`);
             }
+        } else {
+            console.warn('No selected contract found for signature save');
         }
         setIsSignatureModalOpen(false);
     };
@@ -309,8 +355,8 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
                 '{otherItems}': contract.otherItems,
                 '{personnelCount}': contract.personnelCount,
                 '{deliveryTimeframe}': contract.deliveryTimeframe,
-                '{totalCost}': formatCurrency(project.totalCost),
-                '{dpAmount}': formatCurrency(project.amountPaid),
+                '{totalCost}': formatDocumentCurrency(project.totalCost),
+                '{dpAmount}': formatDocumentCurrency(project.amountPaid),
                 '{dpDate}': formatDate(contract.dpDate),
                 '{finalPaymentDate}': formatDate(contract.finalPaymentDate),
                 '{cancellationPolicy}': contract.cancellationPolicy,
@@ -325,24 +371,30 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
         };
         
         const SignatureSection = () => (
-             <section className="mt-16 pt-8 border-t-2 border-slate-200">
+            <section className="signature-section avoid-break">
                 <h4 className="font-bold text-center text-lg mb-8">Tanda Tangan Para Pihak</h4>
-                <div className="flex justify-between items-start">
-                    <div className="text-center w-2/5">
-                        <p className="font-semibold">PIHAK PERTAMA</p>
-                        <p className="text-xs mb-2">({profile.companyName})</p>
-                        <div className="h-28 my-1 flex flex-col items-center justify-center">
-                            {contract.vendorSignature ? <img src={contract.vendorSignature} alt="Tanda Tangan Vendor" className="h-24 object-contain" /> : <span className="italic text-gray-400 text-sm">Belum Ditandatangani</span>}
+                <div className="signature-container">
+                    <div className="signature-column">
+                        <h5>PIHAK PERTAMA</h5>
+                        <p className="party-name">({profile.companyName})</p>
+                        <div className="signature-image-area">
+                            {contract.vendorSignature ? 
+                                <img src={contract.vendorSignature} alt="Tanda Tangan Vendor" /> : 
+                                <span className="no-signature">Belum Ditandatangani</span>
+                            }
                         </div>
-                        <p className="border-t-2 border-dotted w-4/5 mx-auto pt-1 font-semibold">{profile.authorizedSigner}</p>
+                        <div className="signature-name">{profile.authorizedSigner}</div>
                     </div>
-                    <div className="text-center w-2/5">
-                        <p className="font-semibold">PIHAK KEDUA</p>
-                        <p className="text-xs mb-2">({contract.clientName1}{contract.clientName2 ? ` & ${contract.clientName2}` : ''})</p>
-                        <div className="h-28 my-1 flex items-center justify-center">
-                            {contract.clientSignature ? <img src={contract.clientSignature} alt="Tanda Tangan Klien" className="h-24 object-contain" /> : <span className="italic text-gray-400 text-sm">Belum Ditandatangani</span>}
+                    <div className="signature-column">
+                        <h5>PIHAK KEDUA</h5>
+                        <p className="party-name">({contract.clientName1}{contract.clientName2 ? ` & ${contract.clientName2}` : ''})</p>
+                        <div className="signature-image-area">
+                            {contract.clientSignature ? 
+                                <img src={contract.clientSignature} alt="Tanda Tangan Klien" /> : 
+                                <span className="no-signature">Belum Ditandatangani</span>
+                            }
                         </div>
-                        <p className="border-t-2 border-dotted w-4/5 mx-auto pt-1 font-semibold">{contract.clientName1}{contract.clientName2 ? ` & ${contract.clientName2}` : ''}</p>
+                        <div className="signature-name">{contract.clientName1}{contract.clientName2 ? ` & ${contract.clientName2}` : ''}</div>
                     </div>
                 </div>
             </section>
@@ -351,7 +403,7 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
         if (profile.contractTemplate) {
             const renderedTemplate = replacePlaceholders(profile.contractTemplate);
             return (
-                 <div className="printable-content bg-white text-black p-8 font-serif leading-relaxed text-sm">
+                 <div className="printable-content print-contract bg-white text-black font-serif leading-relaxed text-sm avoid-break" style={{padding: '0', margin: '0', background: 'white', color: 'black'}}>
                     <div dangerouslySetInnerHTML={{ __html: renderedTemplate.replace(/\n/g, '<br />') }} />
                     <SignatureSection />
                 </div>
@@ -360,17 +412,116 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
         
         // Fallback to hardcoded structure if no template
         return (
-            <div className="printable-content bg-white text-black p-8 font-serif leading-relaxed text-sm">
-                <h2 className="text-xl font-bold text-center mb-1">SURAT PERJANJIAN KERJA SAMA</h2>
-                <h3 className="text-lg font-bold text-center mb-6">JASA {project.projectType.toUpperCase()}</h3>
-                <p>Pada hari ini, {formatDate(contract.signingDate)}, bertempat di {contract.signingLocation}, telah dibuat dan disepakati perjanjian kerja sama antara:</p>
-                <div className="my-4"><p className="font-bold">PIHAK PERTAMA</p><p>{profile.companyName}, yang diwakili oleh {profile.authorizedSigner} beralamat di {profile.address}.</p></div>
-                <div className="my-4"><p className="font-bold">PIHAK KEDUA</p><p>{contract.clientName1} (No. Tlp: {contract.clientPhone1}), beralamat di {contract.clientAddress1}.</p>{contract.clientName2 && <p>{contract.clientName2} (No. Tlp: {contract.clientPhone2}), beralamat di {contract.clientAddress2}.</p>}</div>
-                <div className="space-y-4 mt-6">
-                    <div><h4 className="font-bold text-center my-3">PASAL 1: RUANG LINGKUP PEKERJAAN</h4><p>PIHAK PERTAMA akan memberikan jasa {project.projectType.toLowerCase()} yang diberikan oleh PIHAK PERTAMA untuk acara PIHAK KEDUA pada tanggal {formatDate(project.date)} di {project.location}. Rincian layanan adalah sebagai berikut: {contract.shootingDuration}, {contract.guaranteedPhotos}, {contract.albumDetails}, dan {contract.otherItems}.</p></div>
-                    <div><h4 className="font-bold text-center my-3">PASAL 2: BIAYA DAN PEMBAYARAN</h4><p>Total biaya jasa adalah sebesar {formatCurrency(project.totalCost)}. Pembayaran dilakukan dengan Uang Muka (DP) pada {formatDate(contract.dpDate)} dan pelunasan pada {formatDate(contract.finalPaymentDate)}.</p></div>
-                    <div><h4 className="font-bold text-center my-3">PASAL 3: PEMBATALAN</h4><p dangerouslySetInnerHTML={{ __html: contract.cancellationPolicy.replace(/\n/g, '<br/>') }}></p></div>
+            <div className="printable-content print-contract bg-white text-black leading-relaxed avoid-break" style={{padding: '0', margin: '0', background: 'white', color: 'black'}}>
+                <div className="document-header">
+                    <h2 className="document-title">SURAT PERJANJIAN KERJA SAMA</h2>
+                    <h3 className="document-subtitle">JASA {project.projectType.toUpperCase()}</h3>
                 </div>
+                
+                <p style={{margin: '0 0 15pt 0', textAlign: 'justify', fontSize: '12pt'}}>
+                    Pada hari ini, {formatDate(contract.signingDate)}, bertempat di {contract.signingLocation}, telah dibuat dan disepakati perjanjian kerja sama antara:
+                </p>
+                
+                <div className="party-section avoid-break">
+                    <p className="party-title">PIHAK PERTAMA</p>
+                    <div className="party-details">
+                        <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                            {profile.companyName}, yang diwakili oleh {profile.authorizedSigner}, beralamat di {profile.address}.
+                        </p>
+                    </div>
+                </div>
+                
+                <div className="party-section avoid-break">
+                    <p className="party-title">PIHAK KEDUA</p>
+                    <div className="party-details">
+                        <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                            {contract.clientName1} (No. Tlp: {contract.clientPhone1}), beralamat di {contract.clientAddress1}.
+                        </p>
+                        {contract.clientName2 && (
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                {contract.clientName2} (No. Tlp: {contract.clientPhone2}), beralamat di {contract.clientAddress2}.
+                            </p>
+                        )}
+                    </div>
+                </div>
+                
+                <div className="document-separator"></div>
+                
+                <div className="contract-content" style={{marginTop: '20pt'}}>
+                    <div className="avoid-break contract-section">
+                        <h4 className="contract-heading" style={{fontSize: '13pt', fontWeight: 'bold', textAlign: 'left', margin: '15pt 0 8pt 0', borderBottom: '1px solid #333', paddingBottom: '3pt'}}>
+                            PASAL 1: RUANG LINGKUP PEKERJAAN
+                        </h4>
+                        <div className="contract-subsection" style={{marginLeft: '15pt'}}>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                1.1. PIHAK PERTAMA akan memberikan jasa {project.projectType.toLowerCase()} untuk acara PIHAK KEDUA pada tanggal {formatDate(project.date)} di {project.location}.
+                            </p>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                1.2. Rincian layanan meliputi: {contract.shootingDuration}, {contract.guaranteedPhotos}, {contract.albumDetails}.
+                            </p>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                1.3. Item tambahan: {contract.otherItems}.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div className="avoid-break contract-section">
+                        <h4 className="contract-heading" style={{fontSize: '13pt', fontWeight: 'bold', textAlign: 'left', margin: '15pt 0 8pt 0', borderBottom: '1px solid #333', paddingBottom: '3pt'}}>
+                            PASAL 2: BIAYA DAN PEMBAYARAN
+                        </h4>
+                        <div className="contract-subsection" style={{marginLeft: '15pt'}}>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                2.1. Total biaya jasa adalah sebesar {formatDocumentCurrency(project.totalCost)}.
+                            </p>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                2.2. Pembayaran dilakukan dengan sistem:
+                            </p>
+                            <div style={{marginLeft: '15pt'}}>
+                                <p style={{margin: '0 0 5pt 0', textAlign: 'justify'}}>
+                                    a. Uang Muka (DP) sebesar {formatDocumentCurrency(project.amountPaid)} pada {formatDate(contract.dpDate)}
+                                </p>
+                                <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                    b. Pelunasan pada {formatDate(contract.finalPaymentDate)}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="avoid-break contract-section">
+                        <h4 className="contract-heading" style={{fontSize: '13pt', fontWeight: 'bold', textAlign: 'left', margin: '15pt 0 8pt 0', borderBottom: '1px solid #333', paddingBottom: '3pt'}}>
+                            PASAL 3: KETENTUAN PEMBATALAN
+                        </h4>
+                        <div className="contract-subsection" style={{marginLeft: '15pt'}}>
+                            <div style={{margin: '0 0 8pt 0', textAlign: 'justify'}} dangerouslySetInnerHTML={{ 
+                                __html: contract.cancellationPolicy
+                                    .split('\n')
+                                    .map((line, index) => `<p style="margin: 0 0 5pt 0;">${index + 1 === 1 ? '3.1. ' : '3.2. '}${line}</p>`)
+                                    .join('') 
+                            }}></div>
+                        </div>
+                    </div>
+                    
+                    <div className="avoid-break contract-section">
+                        <h4 className="contract-heading" style={{fontSize: '13pt', fontWeight: 'bold', textAlign: 'left', margin: '15pt 0 8pt 0', borderBottom: '1px solid #333', paddingBottom: '3pt'}}>
+                            PASAL 4: KETENTUAN UMUM
+                        </h4>
+                        <div className="contract-subsection" style={{marginLeft: '15pt'}}>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                4.1. Waktu pengerjaan: {contract.deliveryTimeframe}.
+                            </p>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                4.2. Tim yang ditugaskan: {contract.personnelCount}.
+                            </p>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                4.3. Perjanjian ini berlaku dan mengikat kedua belah pihak sejak ditandatangani.
+                            </p>
+                            <p style={{margin: '0 0 8pt 0', textAlign: 'justify'}}>
+                                4.4. Segala perselisihan akan diselesaikan secara musyawarah atau melalui pengadilan di {contract.jurisdiction}.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
                 <SignatureSection />
             </div>
         );
@@ -390,7 +541,7 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <StatCard icon={<FileTextIcon className="w-6 h-6"/>} title="Total Kontrak" value={contracts.length.toString()} />
                 <StatCard icon={<ClockIcon className="w-6 h-6"/>} title="Menunggu TTD Klien" value={stats.waitingForClient.toString()} />
-                <StatCard icon={<DollarSignIcon className="w-6 h-6"/>} title="Total Nilai Terkontrak" value={formatCurrency(stats.totalValue)} />
+                <StatCard icon={<DollarSignIcon className="w-6 h-6"/>} title="Total Nilai Terkontrak" value={formatDisplayCurrency(stats.totalValue)} />
             </div>
             
             <div className="bg-brand-surface p-4 rounded-xl shadow-lg border border-brand-border">
@@ -519,7 +670,7 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
             <Modal isOpen={isViewModalOpen} onClose={handleCloseModal} title={`Kontrak: ${selectedContract?.contractNumber}`} size="4xl">
                 {selectedContract && (
                     <div>
-                        <div className="printable-area max-h-[65vh] overflow-y-auto">{renderContractBody(selectedContract)}</div>
+                        <div id="contract-content" className="printable-area max-h-[65vh] overflow-y-auto">{renderContractBody(selectedContract)}</div>
                         <div className="mt-6 flex justify-between items-center non-printable border-t border-brand-border pt-4">
                             <div className="text-sm">
                                 <p className={`font-semibold ${selectedContract.vendorSignature ? 'text-green-500' : 'text-yellow-500'}`}>
@@ -531,13 +682,25 @@ const Contracts: React.FC<ContractsProps> = ({ contracts, setContracts, clients,
                             </div>
                             <div className="space-x-2">
                                 {!selectedContract.vendorSignature && (
-                                    <button onClick={() => setIsSignatureModalOpen(true)} className="button-primary">
+                                    <button
+                                        onClick={() => {
+                                            console.log('Signature button clicked');
+                                            console.log('selectedContract:', selectedContract);
+                                            console.log('isSignatureModalOpen before:', isSignatureModalOpen);
+                                            setIsSignatureModalOpen(true);
+                                            console.log('isSignatureModalOpen after:', true);
+                                        }}
+                                        className="button-primary"
+                                    >
                                         Tanda Tangani Kontrak
                                     </button>
                                 )}
-                                <button type="button" onClick={() => window.print()} className="button-secondary inline-flex items-center gap-2">
-                                    <PrinterIcon className="w-4 h-4"/> Cetak Penuh
-                                </button>
+                                <PrintButton 
+                                    areaId="contract-content"
+                                    label="Cetak"
+                                    title={`Kontrak ${selectedContract.contractNumber}`}
+                                    showPreview={true}
+                                />
                             </div>
                         </div>
                     </div>

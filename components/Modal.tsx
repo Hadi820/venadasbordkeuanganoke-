@@ -52,18 +52,19 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
   };
 
   return (
-    <div 
-      className="app-modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 sm:p-6 md:p-8 transition-all duration-300" 
-      onClick={onClose} 
-      role="dialog" 
-      aria-modal="true" 
-      aria-labelledby="modal-title"
+    <div
+      className="app-modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 sm:p-6 md:p-8 transition-all duration-300 xl:items-start xl:pt-8"
       style={{
+        zIndex: isOpen ? 50 : -1,
         paddingTop: 'calc(1rem + var(--safe-area-inset-top, 0px))',
         paddingBottom: 'calc(1rem + var(--safe-area-inset-bottom, 0px))',
         paddingLeft: 'calc(1rem + var(--safe-area-inset-left, 0px))',
         paddingRight: 'calc(1rem + var(--safe-area-inset-right, 0px))',
       }}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
     >
       <div 
         className={`
@@ -71,9 +72,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
           rounded-2xl sm:rounded-3xl 
           shadow-2xl 
           ${sizeClasses[size]} 
-          max-h-[calc(100vh-2rem)] 
-          sm:max-h-[calc(100vh-4rem)] 
-          md:max-h-[calc(100vh-6rem)]
+          max-h-[calc(100vh-2rem-var(--safe-area-inset-bottom,0px))] 
+          sm:max-h-[calc(100vh-4rem-var(--safe-area-inset-bottom,0px))] 
+          md:max-h-[calc(100vh-6rem-var(--safe-area-inset-bottom,0px))]
+          xl:max-h-[calc(100vh-2rem)]
           flex flex-col 
           transform transition-all duration-300 
           animate-scale-in 
@@ -184,6 +186,17 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
             /* Better mobile scrolling */
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
+          }
+
+          /* Account for bottom navigation bar on mobile */
+          .app-modal-overlay {
+            /* Ensure modal doesn't get covered by bottom nav */
+            padding-bottom: calc(5rem + var(--safe-area-inset-bottom, 0px)) !important;
+          }
+
+          .app-modal-dialog {
+            /* Adjust max height to account for bottom nav */
+            max-height: calc(100vh - 8rem - var(--safe-area-inset-bottom, 0px)) !important;
           }
         }
         

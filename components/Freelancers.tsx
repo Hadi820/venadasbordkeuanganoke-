@@ -5,6 +5,7 @@ import Modal from './Modal';
 import FreelancerProjects from './FreelancerProjects';
 import StatCard from './StatCard';
 import SignaturePad from './SignaturePad';
+import PrintButton from './PrintButton';
 import { PlusIcon, PencilIcon, Trash2Icon, EyeIcon, PrinterIcon, CreditCardIcon, FileTextIcon, HistoryIcon, Share2Icon, PiggyBankIcon, LightbulbIcon, StarIcon, UsersIcon, AlertCircleIcon, UserCheckIcon, MessageSquareIcon, DownloadIcon, QrCodeIcon } from '../constants';
 import { createTeamMember as createTeamMemberRow, updateTeamMember as updateTeamMemberRow, deleteTeamMember as deleteTeamMemberRow } from '../services/teamMembers';
 import { markTeamPaymentStatus, listAllTeamPayments } from '../services/teamProjectPayments';
@@ -1124,9 +1125,11 @@ export const Freelancers: React.FC<FreelancersProps> = ({
                              <PencilIcon className="w-4 h-4"/>
                              Tanda Tangani Slip
                         </button>
-                        <button type="button" onClick={() => window.print()} className="button-primary inline-flex items-center gap-2">
-                             <PrinterIcon className="w-4 h-4"/> Cetak
-                        </button>
+                        <PrintButton
+                            areaId={`payment-slip-content-${paymentSlipToView.id}`}
+                            label="Cetak"
+                            title={`Slip Pembayaran - ${paymentSlipToView.recordNumber || ''}`}
+                        />
                     </div>
                 </Modal>
             )}

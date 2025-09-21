@@ -63,8 +63,14 @@ function denormalize(obj: Partial<Contract>): any {
   };
 }
 
-export async function listContracts(): Promise<Contract[]> {
-  const { data, error } = await supabase.from(TABLE).select('*').order('created_at', { ascending: false });
+export async function listContracts(options: { limit?: number } = {}): Promise<Contract[]> {
+  let query = supabase.from(TABLE).select('*').order('created_at', { ascending: false });
+  
+  if (options.limit) {
+    query = query.limit(options.limit);
+  }
+  
+  const { data, error } = await query;
   if (error) throw error;
   return (data || []).map(normalize);
 }

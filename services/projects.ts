@@ -85,11 +85,95 @@ function normalizeProject(row: any): Project {
   } as Project;
 }
 
-export async function listProjects(): Promise<Project[]> {
-  const { data, error } = await supabase.from(PROJECTS).select('*').order('date', { ascending: false });
+export async function listProjects(options: { limit?: number; offset?: number } = {}): Promise<Project[]> {
+  const limit = Math.min(100, options.limit || 50); // Default 50, max 100
+  const offset = options.offset || 0;
+  
+  const { data, error } = await supabase
+    .from(PROJECTS)
+    .select('*')
+    .order('date', { ascending: false })
+    .range(offset, offset + limit - 1);
+    
   if (error) throw error;
   const rows = (data || []) as any[];
   return rows.map(normalizeProject);
+}
+
+export async function listProjectsPaginated(
+  page: number = 1, 
+  limit: number = 20,
+  searchQuery?: string,
+  filters?: {
+    status?: string;
+    clientId?: string;
+    projectType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }
+): Promise<{
+  projects: Project[];
+  total: number;
+  hasMore: boolean;
+}> {
+  const offset = (page - 1) * limit;
+  
+  // Build query with search and filters
+  let query = supabase.from(PROJECTS).select('*', { count: 'exact' });
+  let countQuery = supabase.from(PROJECTS).select('*', { count: 'exact', head: true });
+  
+  // Apply search
+  if (searchQuery && searchQuery.trim()) {
+    const searchTerm = `%${searchQuery.trim()}%`;
+    query = query.or(`project_name.ilike.${searchTerm},client_name.ilike.${searchTerm},location.ilike.${searchTerm}`);
+    countQuery = countQuery.or(`project_name.ilike.${searchTerm},client_name.ilike.${searchTerm},location.ilike.${searchTerm}`);
+  }
+  
+  // Apply filters
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+    countQuery = countQuery.eq('status', filters.status);
+  }
+  
+  if (filters?.clientId) {
+    query = query.eq('client_id', filters.clientId);
+    countQuery = countQuery.eq('client_id', filters.clientId);
+  }
+  
+  if (filters?.projectType) {
+    query = query.eq('project_type', filters.projectType);
+    countQuery = countQuery.eq('project_type', filters.projectType);
+  }
+  
+  if (filters?.dateFrom) {
+    query = query.gte('date', filters.dateFrom);
+    countQuery = countQuery.gte('date', filters.dateFrom);
+  }
+  
+  if (filters?.dateTo) {
+    query = query.lte('date', filters.dateTo);
+    countQuery = countQuery.lte('date', filters.dateTo);
+  }
+  
+  // Get total count
+  const { count, error: countError } = await countQuery;
+  if (countError) throw countError;
+  
+  // Get paginated data
+  const { data, error } = await query
+    .order('date', { ascending: false })
+    .range(offset, offset + limit - 1);
+    
+  if (error) throw error;
+  
+  const projects = (data || []).map(normalizeProject);
+  const total = count || 0;
+  
+  return {
+    projects,
+    total,
+    hasMore: (page * limit) < total
+  };
 }
 
 export type UpdateProjectInput = Partial<CreateProjectInput> & { addOns?: { id: string; name: string; price: number }[] };
@@ -332,7 +416,9 @@ export async function createProjectWithRelations(input: CreateProjectInput & {
   
   // Fetch and attach team data
   if (input.team && input.team.length > 0) {
-    const { listAssignmentsByProject } = await import('./projectTeamAssignments');
+    // `projectTeamAssignments` is statically imported at the top of this file.
+    // Use the already-imported `listAssignmentsByProject` to avoid dynamic/static import
+    // conflicts that prevent Rollup from code-splitting.
     completeProject.team = await listAssignmentsByProject(project.id);
   }
   

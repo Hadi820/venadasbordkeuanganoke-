@@ -34,10 +34,51 @@ function denormalize(obj: Partial<TeamMember>): any {
   };
 }
 
-export async function listTeamMembers(): Promise<TeamMember[]> {
-  const { data, error } = await supabase.from(TABLE).select('*').order('name');
+export async function listTeamMembers(options: { limit?: number; offset?: number } = {}): Promise<TeamMember[]> {
+  const limit = Math.min(100, options.limit || 50); // Default 50, max 100
+  const offset = options.offset || 0;
+  
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .order('name')
+    .range(offset, offset + limit - 1);
+    
   if (error) throw error;
   return (data || []).map(normalize);
+}
+
+export async function listTeamMembersPaginated(page: number = 1, limit: number = 20): Promise<{
+  teamMembers: TeamMember[];
+  total: number;
+  hasMore: boolean;
+}> {
+  const offset = (page - 1) * limit;
+  
+  // Get total count
+  const { count, error: countError } = await supabase
+    .from(TABLE)
+    .select('*', { count: 'exact', head: true });
+  
+  if (countError) throw countError;
+  
+  // Get paginated data
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .order('name')
+    .range(offset, offset + limit - 1);
+    
+  if (error) throw error;
+  
+  const teamMembers = (data || []).map(normalize);
+  const total = count || 0;
+  
+  return {
+    teamMembers,
+    total,
+    hasMore: (page * limit) < total
+  };
 }
 
 export async function createTeamMember(payload: Omit<TeamMember, 'id'>): Promise<TeamMember> {

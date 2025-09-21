@@ -1,9 +1,14 @@
-import React, { useState, useEffect, lazy, Suspense, startTransition } from 'react';
+import React, { useState, useEffect, startTransition, lazy, Suspense } from 'react';
 import { ViewType, Client, Project, TeamMember, Transaction, Package, AddOn, TeamProjectPayment, Profile, FinancialPocket, TeamPaymentRecord, Lead, RewardLedgerEntry, User, Card, Asset, ClientFeedback, Contract, RevisionStatus, NavigationAction, Notification, SocialMediaPost, PromoCode, SOP, CardType, PocketType, VendorData, PaymentStatus, TransactionType } from './types';
 import { MOCK_USERS, DEFAULT_USER_PROFILE, MOCK_DATA, HomeIcon, FolderKanbanIcon, UsersIcon, DollarSignIcon, PlusIcon, lightenColor, darkenColor, hexToHsl } from './constants';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-// Lazy-loaded heavy views
+import ErrorBoundary from './components/ErrorBoundary';
+// Keep lightweight/core components imported normally
+import GlobalSearch from './components/GlobalSearch';
+import Homepage from './components/Homepage';
+import Login from './components/Login';
+// Lazy-load route components to enable real code-splitting and avoid dynamic/static import conflicts
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Leads = lazy(() => import('./components/Leads').then(m => ({ default: m.Leads })));
 const Booking = lazy(() => import('./components/Booking'));
@@ -15,15 +20,7 @@ const Packages = lazy(() => import('./components/Packages'));
 const Assets = lazy(() => import('./components/Assets').then(m => ({ default: m.Assets })));
 const Settings = lazy(() => import('./components/Settings'));
 const CalendarView = lazy(() => import('./components/CalendarView').then(m => ({ default: m.CalendarView })));
-const Login = lazy(() => import('./components/Login'));
-const PublicBookingForm = lazy(() => import('./components/PublicBookingForm'));
-const PublicPackages = lazy(() => import('./components/PublicPackages'));
-const PublicFeedbackForm = lazy(() => import('./components/PublicFeedbackForm'));
-const PublicRevisionForm = lazy(() => import('./components/PublicRevisionForm'));
-const PublicLeadForm = lazy(() => import('./components/PublicLeadForm'));
-const SuggestionForm = lazy(() => import('./components/SuggestionForm'));
 const ClientReports = lazy(() => import('./components/ClientKPI'));
-const GlobalSearch = lazy(() => import('./components/GlobalSearch'));
 const Contracts = lazy(() => import('./components/Contracts'));
 const ClientPortal = lazy(() => import('./components/ClientPortal'));
 const FreelancerPortal = lazy(() => import('./components/FreelancerPortal'));
@@ -31,7 +28,13 @@ const SocialPlanner = lazy(() => import('./components/SocialPlanner').then(m => 
 const Marketing = lazy(() => import('./components/Marketing'));
 const PromoCodes = lazy(() => import('./components/PromoCodes'));
 const SOPManagement = lazy(() => import('./components/SOP'));
-const Homepage = lazy(() => import('./components/Homepage'));
+const PublicBookingForm = lazy(() => import('./components/PublicBookingForm'));
+const PublicPackages = lazy(() => import('./components/PublicPackages'));
+const PublicFeedbackForm = lazy(() => import('./components/PublicFeedbackForm'));
+const PublicRevisionForm = lazy(() => import('./components/PublicRevisionForm'));
+const PublicLeadForm = lazy(() => import('./components/PublicLeadForm'));
+const SuggestionForm = lazy(() => import('./components/SuggestionForm'));
+const TestSignature = lazy(() => import('./components/TestSignature'));
 import { listClients } from './services/clients';
 import { listLeads } from './services/leads';
 import { listPromoCodes } from './services/promoCodes';
@@ -43,9 +46,11 @@ import { listContracts } from './services/contracts';
 import { listSOPs } from './services/sops';
 import { listTeamMembers } from './services/teamMembers';
 import { listSocialPosts } from './services/socialPosts';
-import { listProjectsWithRelations as listProjectsFromDb } from './services/projects';
+import { listProjects } from './services/projects';
 import { updateProject as updateProjectInDb } from './services/projects';
 import { getProfile as getProfileFromDb } from './services/profile';
+import { useAppData } from './hooks/useAppData';
+import { DataLoadingWrapper } from './components/LoadingState';
 import { listAllTeamPayments } from './services/teamProjectPayments';
 import { listUsers as listUsersFromDb } from './services/users';
 import { listLeads as listLeadsFromDb } from './services/leads';
@@ -278,6 +283,9 @@ const App: React.FC = () => {
   const [packages, setPackages] = usePersistentState<Package[]>('vena-packages', JSON.parse(JSON.stringify(MOCK_DATA.packages)));
   const [addOns, setAddOns] = usePersistentState<AddOn[]>('vena-addOns', JSON.parse(JSON.stringify(MOCK_DATA.addOns)));
 
+  // --- Lazy Data Loading Hook ---
+  const appData = useAppData();
+
 
     // --- [NEW] MOCK EMAIL SERVICE ---
     const sendEmailNotification = (recipientEmail: string, notification: Notification) => {
@@ -383,92 +391,45 @@ const App: React.FC = () => {
         }
     }, [rewardLedgerEntries, teamMembers.length]);
 
-    // --- Load clients from Supabase (clear legacy localStorage) ---
+    // --- Sync clients from lazy loading hook ---
     useEffect(() => {
         try { window.localStorage.removeItem('vena-clients'); } catch {}
-        let isMounted = true;
-        (async () => {
-            try {
-                const remote = await listClients();
-                if (!isMounted) return;
-                if (Array.isArray(remote) && remote.length) {
-                    setClients(remote as any);
-                }
-            } catch (e) {
-                console.warn('[Supabase] Failed to fetch clients, falling back to local data.', e);
-            }
-        })();
-        return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (appData.loaded.clients) {
+            setClients(appData.clients);
+        }
+    }, [appData.clients, appData.loaded.clients]);
 
-    // --- [NEW] Load team members from Supabase on init and clear legacy localStorage ---
+    // --- Sync team members from lazy loading hook ---
     useEffect(() => {
         try { window.localStorage.removeItem('vena-teamMembers'); } catch {}
-        let isMounted = true;
-        (async () => {
-            try {
-                const remote = await listTeamMembers();
-                if (!isMounted) return;
-                setTeamMembers(Array.isArray(remote) ? remote : []);
-            } catch (e) {
-                console.warn('[Supabase] Failed to fetch team members.', e);
-            }
-        })();
-        return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (appData.loaded.teamMembers) {
+            setTeamMembers(appData.teamMembers);
+        }
+    }, [appData.teamMembers, appData.loaded.teamMembers]);
 
-    // --- [NEW] Load contracts from Supabase on init and clear legacy localStorage ---
+    // --- Sync contracts from lazy loading hook ---
     useEffect(() => {
         try { window.localStorage.removeItem('vena-contracts'); } catch {}
-        let isMounted = true;
-        (async () => {
-            try {
-                const remote = await listContracts();
-                if (!isMounted) return;
-                setContracts(Array.isArray(remote) ? remote : []);
-            } catch (e) {
-                console.warn('[Supabase] Failed to fetch contracts.', e);
-            }
-        })();
-        return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (appData.loaded.contracts) {
+            setContracts(appData.contracts);
+        }
+    }, [appData.contracts, appData.loaded.contracts]);
 
-    // --- [NEW] Load SOPs from Supabase on init and clear legacy localStorage ---
+    // --- Sync SOPs from lazy loading hook ---
     useEffect(() => {
         try { window.localStorage.removeItem('vena-sops'); } catch {}
-        let isMounted = true;
-        (async () => {
-            try {
-                const remote = await listSOPs();
-                if (!isMounted) return;
-                setSops(Array.isArray(remote) ? remote : []);
-            } catch (e) {
-                console.warn('[Supabase] Failed to fetch SOPs.', e);
-            }
-        })();
-        return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (appData.loaded.sops) {
+            setSops(appData.sops);
+        }
+    }, [appData.sops, appData.loaded.sops]);
 
-    // --- [NEW] Load transactions from Supabase on init and clear legacy localStorage ---
+    // --- Sync transactions from lazy loading hook ---
     useEffect(() => {
         try { window.localStorage.removeItem('vena-transactions'); } catch {}
-        let isMounted = true;
-        (async () => {
-            try {
-                const remote = await listTransactionsFromDb();
-                if (!isMounted) return;
-                setTransactions(Array.isArray(remote) ? remote : []);
-            } catch (e) {
-                console.warn('[Supabase] Failed to fetch transactions.', e);
-            }
-        })();
-        return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (appData.loaded.transactions) {
+            setTransactions(appData.transactions);
+        }
+    }, [appData.transactions, appData.loaded.transactions]);
 
     // --- [NEW] One-time migration: teamPaymentRecords from localStorage to Supabase ---
     useEffect(() => {
@@ -751,7 +712,7 @@ const App: React.FC = () => {
         let isMounted = true;
         (async () => {
             try {
-                const remoteContracts = await listContracts();
+                const remoteContracts = await listContracts({ limit: 50 });
                 if (!isMounted) return;
                 if (Array.isArray(remoteContracts) && remoteContracts.length) {
                     setContracts(remoteContracts as any);
@@ -789,12 +750,13 @@ const App: React.FC = () => {
         } catch {}
     }, []);
 
-    // --- [NEW] Load projects (with relations: team, add-ons) from Supabase on init ---
+    // --- [NEW] Load projects (optimized - load only recent 30 projects initially) ---
     useEffect(() => {
         let isMounted = true;
         (async () => {
             try {
-                const remoteProjects = await listProjectsFromDb();
+                // Load only recent 30 projects initially to reduce egress
+                const remoteProjects = await listProjects({ limit: 30 });
                 if (!isMounted) return;
                 setProjects(Array.isArray(remoteProjects) ? (remoteProjects as any) : []);
             } catch (e) {
@@ -879,19 +841,15 @@ const App: React.FC = () => {
   };
 
   const handleLoginSuccess = (user: User) => {
-    startTransition(() => {
-      setIsAuthenticated(true);
-      setCurrentUser(user);
-      window.location.hash = '#/dashboard';
-    });
+    setIsAuthenticated(true);
+    setCurrentUser(user);
+    window.location.hash = '#/dashboard';
   };
   
   const handleLogout = () => {
-    startTransition(() => {
-      setIsAuthenticated(false);
-      setCurrentUser(null);
-      window.location.hash = '#/home';
-    });
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    window.location.hash = '#/home';
   };
 
   const handleMarkAsRead = (notificationId: string) => {
@@ -903,37 +861,60 @@ const App: React.FC = () => {
   };
 
   const handleNavigation = (view: ViewType, action?: NavigationAction, notificationId?: string) => {
-        const pathMap: { [key in ViewType]: string } = {
-            [ViewType.HOMEPAGE]: 'home',
-            [ViewType.DASHBOARD]: 'dashboard',
-            [ViewType.PROSPEK]: 'prospek',
-            [ViewType.BOOKING]: 'booking',
-            [ViewType.CLIENTS]: 'clients',
-            [ViewType.PROJECTS]: 'projects',
-            [ViewType.TEAM]: 'team',
-            [ViewType.FINANCE]: 'finance',
-            [ViewType.CALENDAR]: 'calendar',
-            [ViewType.SOCIAL_MEDIA_PLANNER]: 'social-media-planner',
-            [ViewType.MARKETING]: 'marketing',
-            [ViewType.PACKAGES]: 'packages',
-            [ViewType.ASSETS]: 'assets',
-            [ViewType.CONTRACTS]: 'contracts',
-            [ViewType.PROMO_CODES]: 'promo-codes',
-            [ViewType.SOP]: 'sop',
-            [ViewType.CLIENT_REPORTS]: 'client-reports',
-            [ViewType.SETTINGS]: 'settings',
-        };
+    const pathMap: { [key in ViewType]: string } = {
+      [ViewType.HOMEPAGE]: 'home',
+      [ViewType.DASHBOARD]: 'dashboard',
+      [ViewType.PROSPEK]: 'prospek',
+      [ViewType.BOOKING]: 'booking',
+      [ViewType.CLIENTS]: 'clients',
+      [ViewType.PROJECTS]: 'projects',
+      [ViewType.TEAM]: 'team',
+      [ViewType.FINANCE]: 'finance',
+      [ViewType.CALENDAR]: 'calendar',
+      [ViewType.SOCIAL_MEDIA_PLANNER]: 'social-media-planner',
+      [ViewType.MARKETING]: 'marketing',
+      [ViewType.PACKAGES]: 'packages',
+      [ViewType.ASSETS]: 'assets',
+      [ViewType.CONTRACTS]: 'contracts',
+      [ViewType.PROMO_CODES]: 'promo-codes',
+      [ViewType.SOP]: 'sop',
+      [ViewType.CLIENT_REPORTS]: 'client-reports',
+      [ViewType.SETTINGS]: 'settings',
+    };
 
     const newRoute = `#/${pathMap[view] || view.toLowerCase().replace(/ /g, '-')}`;
 
     window.location.hash = newRoute;
 
+    // Lazy load data based on view
+    switch (view) {
+      case ViewType.CLIENTS:
+        appData.loadClients();
+        break;
+      case ViewType.PROJECTS:
+        appData.loadProjects();
+        break;
+      case ViewType.TEAM:
+        appData.loadTeamMembers();
+        break;
+      case ViewType.CONTRACTS:
+        appData.loadContracts();
+        break;
+      case ViewType.SOP:
+        appData.loadSOPs();
+        break;
+      case ViewType.FINANCE:
+        appData.loadTransactions();
+        break;
+    }
+
     setActiveView(view);
     setInitialAction(action || null);
     setIsSidebarOpen(false); // Close sidebar on navigation
     setIsSearchOpen(false); // Close search on navigation
+    
     if (notificationId) {
-        handleMarkAsRead(notificationId);
+      handleMarkAsRead(notificationId);
     }
   };
 
@@ -992,13 +973,20 @@ const App: React.FC = () => {
             showNotification={showNotification}
         />;
       case ViewType.CLIENTS:
-        return <Clients
-          clients={clients} setClients={setClients}
-          projects={projects} setProjects={setProjects}
-          packages={packages} addOns={addOns}
-          transactions={transactions} setTransactions={setTransactions}
-          userProfile={profile}
-          showNotification={showNotification}
+        return (
+          <DataLoadingWrapper
+            loading={appData.loading.clients}
+            loaded={appData.loaded.clients}
+            loadingMessage="Memuat data klien..."
+            onRetry={appData.loadClients}
+          >
+            <Clients
+              clients={clients} setClients={setClients}
+              projects={projects} setProjects={setProjects}
+              packages={packages} addOns={addOns}
+              transactions={transactions} setTransactions={setTransactions}
+              userProfile={profile}
+              showNotification={showNotification}
           initialAction={initialAction} setInitialAction={setInitialAction}
           cards={cards} setCards={setCards}
           pockets={pockets} setPockets={setPockets}
@@ -1008,7 +996,7 @@ const App: React.FC = () => {
           promoCodes={promoCodes} setPromoCodes={setPromoCodes}
           onSignInvoice={(pId, sig) => setProjects(prev => prev.map(p => p.id === pId ? { ...p, invoiceSignature: sig } : p))}
           onSignTransaction={(tId, sig) => setTransactions(prev => prev.map(t => t.id === tId ? { ...t, vendorSignature: sig } : t))}
-          onRecordPayment={async (projectId, amount, destinationCardId) => {
+          onRecordPayment={async (projectId: string, amount: number, destinationCardId: string) => {
             try {
               const today = new Date().toISOString().split('T')[0];
               const proj = projects.find(p => p.id === projectId);
@@ -1047,10 +1035,19 @@ const App: React.FC = () => {
             }
           }}
           addNotification={addNotification}
-        />;
+            />
+          </DataLoadingWrapper>
+        );
       case ViewType.PROJECTS:
-        return <Projects 
-          projects={projects} setProjects={setProjects}
+        return (
+          <DataLoadingWrapper
+            loading={appData.loading.projects}
+            loaded={appData.loaded.projects}
+            loadingMessage="Memuat data proyek..."
+            onRetry={appData.loadProjects}
+          >
+            <Projects 
+              projects={projects} setProjects={setProjects}
           clients={clients}
           packages={packages}
           teamMembers={teamMembers}
@@ -1061,10 +1058,18 @@ const App: React.FC = () => {
           showNotification={showNotification}
           cards={cards}
           setCards={setCards}
-        />;
+            />
+          </DataLoadingWrapper>
+        );
       case ViewType.TEAM:
         return (
-          <Freelancers
+          <DataLoadingWrapper
+            loading={appData.loading.teamMembers}
+            loaded={appData.loaded.teamMembers}
+            loadingMessage="Memuat data tim..."
+            onRetry={appData.loadTeamMembers}
+          >
+            <Freelancers
             teamMembers={teamMembers}
             setTeamMembers={setTeamMembers}
             teamProjectPayments={teamProjectPayments}
@@ -1086,7 +1091,8 @@ const App: React.FC = () => {
             cards={cards}
             setCards={setCards}
             onSignPaymentRecord={(rId, sig) => setTeamPaymentRecords(prev => prev.map(r => r.id === rId ? { ...r, vendorSignature: sig } : r))}
-          />
+            />
+          </DataLoadingWrapper>
         );
       case ViewType.FINANCE:
         return <Finance 
@@ -1153,20 +1159,11 @@ const App: React.FC = () => {
   };
   
   // --- ROUTING LOGIC ---
-  const suspenseFallback = (<div className="p-6 text-sm text-brand-text-secondary">Memuat...</div>);
-  if (route.startsWith('#/home') || route === '#/') return (
-    <Suspense fallback={suspenseFallback}>
-      <Homepage />
-    </Suspense>
-  );
-  if (route.startsWith('#/login')) return (
-    <Suspense fallback={suspenseFallback}>
-      <Login onLoginSuccess={handleLoginSuccess} users={users} />
-    </Suspense>
-  );
+  if (route.startsWith('#/home') || route === '#/') return <Homepage />;
+  if (route.startsWith('#/login')) return <Login onLoginSuccess={handleLoginSuccess} users={users} />;
   
   if (route.startsWith('#/public-packages')) {
-    return <Suspense fallback={suspenseFallback}><PublicPackages 
+    return <PublicPackages 
         userProfile={profile}
         showNotification={showNotification}
         setClients={setClients}
@@ -1179,23 +1176,24 @@ const App: React.FC = () => {
         projects={projects}
         promoCodes={promoCodes}
         setPromoCodes={setPromoCodes}
-    /></Suspense>;
+    />;
   }
   if (route.startsWith('#/public-booking')) {
     const allDataForForm = { clients, projects, teamMembers, transactions, teamProjectPayments, teamPaymentRecords, pockets, profile, leads, rewardLedgerEntries, cards, assets, contracts, clientFeedback, notifications, socialMediaPosts, promoCodes, sops, packages, addOns };
-    return <Suspense fallback={suspenseFallback}><PublicBookingForm {...allDataForForm} userProfile={profile} showNotification={showNotification} setClients={setClients} setProjects={setProjects} setTransactions={setTransactions} setCards={setCards} setPockets={setPockets} setPromoCodes={setPromoCodes} setLeads={setLeads} addNotification={addNotification} /></Suspense>;
+    return <PublicBookingForm {...allDataForForm} userProfile={profile} showNotification={showNotification} setClients={setClients} setProjects={setProjects} setTransactions={setTransactions} setCards={setCards} setPockets={setPockets} setPromoCodes={setPromoCodes} setLeads={setLeads} addNotification={addNotification} />;
   }
   if (route.startsWith('#/public-lead-form')) {
     // FIX: Pass addNotification prop to PublicLeadForm
-    return <Suspense fallback={suspenseFallback}><PublicLeadForm setLeads={setLeads} userProfile={profile} showNotification={showNotification} addNotification={addNotification} /></Suspense>;
+    return <PublicLeadForm setLeads={setLeads} userProfile={profile} showNotification={showNotification} addNotification={addNotification} />;
   }
   
-  if (route.startsWith('#/feedback')) return <Suspense fallback={suspenseFallback}><PublicFeedbackForm setClientFeedback={setClientFeedback} /></Suspense>;
-  if (route.startsWith('#/suggestion-form')) return <Suspense fallback={suspenseFallback}><SuggestionForm setLeads={setLeads} /></Suspense>;
-  if (route.startsWith('#/revision-form')) return <Suspense fallback={suspenseFallback}><PublicRevisionForm projects={projects} teamMembers={teamMembers} onUpdateRevision={(pId, rId, data) => setProjects(prev => prev.map(p => p.id === pId ? {...p, revisions: p.revisions?.map(r => r.id === rId ? {...r, ...data, completedDate: new Date().toISOString()} : r)} : p))} /></Suspense>;
+  if (route.startsWith('#/feedback')) return <PublicFeedbackForm setClientFeedback={setClientFeedback} />;
+  if (route.startsWith('#/suggestion-form')) return <SuggestionForm setLeads={setLeads} />;
+  if (route.startsWith('#/revision-form')) return <PublicRevisionForm projects={projects} teamMembers={teamMembers} />;
+  if (route.startsWith('#/test-signature')) return <TestSignature />;
   if (route.startsWith('#/portal/')) {
     const accessId = route.split('/portal/')[1];
-    return <Suspense fallback={suspenseFallback}><ClientPortal 
+    return <ClientPortal 
         accessId={accessId} 
         clients={clients} 
         projects={projects} 
@@ -1244,12 +1242,12 @@ const App: React.FC = () => {
             ...c,
             [signer === 'vendor' ? 'vendorSignature' : 'clientSignature']: sig 
         } : c))}
-    /></Suspense>;
+    />;
   }
   if (route.startsWith('#/freelancer-portal/')) {
      const accessId = route.split('/freelancer-portal/')[1];
      // FIX: Pass addNotification prop to FreelancerPortal
-     return <Suspense fallback={suspenseFallback}><FreelancerPortal 
+     return <FreelancerPortal 
         accessId={accessId} 
         teamMembers={teamMembers} 
         projects={projects} 
@@ -1303,7 +1301,7 @@ const App: React.FC = () => {
         sops={sops} 
         userProfile={profile} 
         addNotification={addNotification} 
-     /></Suspense>;
+     />;
   }
 
   if (!isAuthenticated) return <Login onLoginSuccess={handleLoginSuccess} users={users} />;
@@ -1338,9 +1336,24 @@ const App: React.FC = () => {
           }}
         >
             <div className="animate-fade-in">
-                <Suspense fallback={suspenseFallback}>
-                  {renderView()}
-                </Suspense>
+                                <ErrorBoundary fallback={
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                      <div className="text-red-500 text-4xl mb-2">⚠️</div>
+                      <p className="text-brand-text-secondary">Gagal memuat komponen. Silakan coba lagi.</p>
+                      <button 
+                        onClick={() => window.location.reload()} 
+                        className="mt-2 button-primary"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+                                }>
+                                                          <Suspense fallback={<div className="py-12 text-center text-brand-text-secondary">Memuat komponen…</div>}>
+                                                            {renderView()}
+                                                        </Suspense>
+                                </ErrorBoundary>
             </div>
         </main>
       </div>

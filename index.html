@@ -9,51 +9,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Vena Pictures">
     <title>Vena Pictures</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS loaded via build process -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Manrope', 'sans-serif'],
-            },
-            colors: {
-              'brand': {
-                'bg': 'var(--color-bg)',
-                'surface': 'var(--color-surface)',
-                'accent': 'var(--color-accent)',
-                'accent-hover': 'var(--color-accent-hover)',
-                'danger': 'var(--color-danger)',
-                'success': 'var(--color-success)',
-                'text-light': 'var(--color-text-light)',
-                'text-primary': 'var(--color-text-primary)',
-                'text-secondary': 'var(--color-text-secondary)',
-                'border': 'var(--color-border)',
-                'input': 'var(--color-input-bg)',
-              }
-            },
-            boxShadow: {
-              'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-              'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-              'up-lg': '0 -10px 15px -3px rgb(0 0 0 / 0.05), 0 -4px 6px -4px rgb(0 0 0 / 0.05)',
-              'soft': '0 4px 20px -4px rgba(0, 0, 0, 0.1)',
-              'neumorphism': '8px 8px 16px #c8d0e7, -8px -8px 16px #ffffff'
-            },
-            animation: {
-              'fade-in': 'fadeIn 0.3s ease-out',
-              'slide-up': 'slideUp 0.3s ease-out',
-              'slide-down': 'slideDown 0.3s ease-out',
-              'bounce-subtle': 'bounceSubtle 0.6s ease-out',
-              'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
-              'scale-in': 'scaleIn 0.2s ease-out'
-            }
-          }
-        }
-      }
-    </script>
     <style>
       :root {
         /* App Dashboard Colors */
@@ -696,162 +655,7 @@
         }
       }
 
-      /* Enhanced Print Styles */
-      @media print {
-        @page {
-          size: auto; /* Let the browser handle page size and orientation */
-          margin: 0.5cm; /* Reduce margins to maximize content area */
-        }
-
-        body, html {
-            width: 100%;
-            height: auto;
-            background: white !important;
-        }
-
-        body * {
-          visibility: hidden;
-        }
-        
-        .printable-area, .printable-area *, 
-        .printable-area-temp, .printable-area-temp * {
-          visibility: visible;
-        }
-
-        .printable-area, 
-        .printable-area-temp {
-          /* Use static positioning to allow natural multi-page flow */
-          position: static !important;
-          left: auto !important;
-          top: auto !important;
-          width: 100% !important;
-          border: none !important;
-          box-shadow: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          float: none !important;
-        }
-        
-        body {
-          font-family: 'Times New Roman', Times, serif !important;
-          font-size: 10pt !important;
-          color: #000 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        
-        .printable-content,
-        .printable-content > div { /* Target the inner container with max-width */
-          padding: 0 !important;
-          border: none !important;
-          box-shadow: none !important;
-          background-color: white !important;
-          max-width: none !important; /* Remove max-width */
-          width: 100% !important;
-          margin: 0 !important;
-        }
-        /* Neutralize common utility constraints that can clip content */
-        .printable-area [class*="max-w-"] { max-width: none !important; width: 100% !important; }
-        .printable-area [class*="overflow-"] { overflow: visible !important; }
-        .printable-area [class*="shadow"] { box-shadow: none !important; }
-        .printable-area img { max-width: 100% !important; }
-        /* Keep logos and header images at a sensible size on paper */
-        .printable-area header img { max-height: 28mm !important; height: auto !important; width: auto !important; }
-        /* Keep a safe printable width to avoid right-edge clipping while preserving margins */
-        .printable-area .mx-auto { max-width: 190mm !important; width: 100% !important; margin-left: auto !important; margin-right: auto !important; }
-        /* Tone down heavy paddings to save vertical space on print */
-        .printable-area .p-8 { padding: 12mm !important; }
-        .printable-area .sm\:p-12 { padding: 14mm !important; }
-        /* Avoid sticky elements causing overlay/clipping in print */
-        .printable-area .sticky, .printable-area [class*="sticky"] { position: static !important; top: auto !important; }
-        /* Neutralize fixed and transforms that can cause clipping in print */
-        .printable-area .fixed { position: static !important; inset: auto !important; }
-        .printable-area [class*="transform"],
-        .printable-area [style*="transform"] { transform: none !important; }
-        .printable-area *, .printable-area *::before, .printable-area *::after { box-sizing: border-box !important; }
-        
-        .printable-area .non-printable, .printable-area-temp .non-printable { display: none !important; }
-        .printable-area .overflow-x-auto, .printable-area-temp .overflow-x-auto { overflow-x: visible !important; }
-        
-        .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6,
-        .printable-area-temp h1, .printable-area-temp h2, .printable-area-temp h3, .printable-area-temp h4, .printable-area-temp h5, .printable-area-temp h6 {
-          page-break-after: avoid !important;
-          color: #000 !important;
-        }
-        .printable-area h1 { font-size: 22pt !important; font-weight: bold; margin-bottom: 0.5cm; }
-        .printable-area h2 { font-size: 16pt !important; font-weight: bold; margin-bottom: 0.5cm; }
-        .printable-area h3 { font-size: 12pt !important; font-weight: bold; margin-bottom: 0.4cm; }
-        .printable-area p { line-height: 1.5; margin-bottom: 0.4cm; font-size: 10pt !important;}
-        
-        /* Custom print classes for colors */
-        .printable-bg-blue { background-color: #f0f8ff !important; border: 1px solid #e0e0e0 !important; }
-        .printable-text-white { color: #000 !important; }
-        .printable-bg-green-light { background-color: #f0fff4 !important; border: 1px solid #e0e0e0 !important; }
-        .print-text-green { color: #006400 !important; }
-        .print-text-red { color: #b22222 !important; }
-        .print-bg-slate { background-color: #f8f8f8 !important; }
-        .print-text-black { color: #000 !important; }
-
-        .printable-area .text-gradient { background: none !important; -webkit-text-fill-color: inherit !important; color: #000 !important; font-weight: bold; }
-        .printable-area .text-brand-success { color: #006400 !important; }
-        .printable-area .text-brand-danger { color: #b22222 !important; }
-
-        /* Table Styling for Print */
-        .printable-area table, .printable-area .responsive-table,
-        .printable-area-temp table, .printable-area-temp .responsive-table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            page-break-inside: auto;
-        }
-        .printable-area tbody, .printable-area .responsive-table tbody,
-        .printable-area-temp tbody, .printable-area-temp .responsive-table tbody { page-break-inside: auto; }
-        .printable-area tbody tr, .printable-area .responsive-table tbody tr,
-        .printable-area-temp tbody tr, .printable-area-temp .responsive-table tbody tr { break-inside: avoid; page-break-inside: avoid; }
-        .printable-area thead, .printable-area .responsive-table thead,
-        .printable-area-temp thead, .printable-area-temp .responsive-table thead {
-             display: table-header-group !important;
-        }
-        .printable-area tfoot, .printable-area .responsive-table tfoot,
-        .printable-area-temp tfoot, .printable-area-temp .responsive-table tfoot {
-             display: table-footer-group !important;
-        }
-        .printable-area tr, .printable-area .responsive-table tr,
-        .printable-area-temp tr, .printable-area-temp .responsive-table tr {
-             display: table-row !important;
-             page-break-inside: avoid !important;
-             margin-bottom: 0 !important;
-             border: 0 !important;
-             padding: 0 !important;
-        }
-        .printable-area th, .printable-area td, .printable-area .responsive-table td,
-        .printable-area-temp th, .printable-area-temp td, .printable-area-temp .responsive-table td {
-            display: table-cell !important;
-            padding: 0.3cm !important;
-            text-align: left !important;
-            border-bottom: 1px solid #ccc !important;
-            position: static !important;
-        }
-        .printable-area .responsive-table td::before,
-        .printable-area-temp .responsive-table td::before {
-            display: none !important;
-        }
-        .printable-area th {
-            font-weight: 600 !important;
-            background-color: #f8f8f8 !important;
-        }
-        
-        /* Layout Helpers for Print - prefer block to allow natural page breaks */
-        .printable-area .grid, .printable-area-temp .grid { display: block !important; }
-        .printable-area .md\:grid-cols-3, .printable-area-temp .md\:grid-cols-3 { grid-template-columns: none !important; }
-        .printable-area .md\:grid-cols-2, .printable-area-temp .md\:grid-cols-2 { grid-template-columns: none !important; }
-        .printable-area .flex, .printable-area-temp .flex { display: block !important; }
-        .printable-area .sm\:flex-row, .printable-area-temp .sm\:flex-row { flex-direction: initial !important; }
-        .printable-area .sm\:w-2\/5, .printable-area-temp .sm\:w-2\/5 { width: 40% !important; }
-        .printable-area .avoid-break, .printable-area .totals-section, .printable-area .signature-section, 
-        .printable-area-temp .avoid-break, .printable-area-temp .totals-section, .printable-area-temp .signature-section { page-break-inside: avoid !important; }
-        .printable-area .page-break-before, .printable-area-temp .page-break-before { page-break-before: always !important; break-before: page !important; }
-        .printable-area .page-break-after, .printable-area-temp .page-break-after { page-break-after: always !important; break-after: page !important; }
-      }
+      /* Enhanced Print Styles moved to app/index.css to avoid conflicts */
 
       /* --- Enhanced Mobile Responsive Styles --- */
       
@@ -1048,15 +852,162 @@
         }
       }
       
-      /* Dark mode media query support */
-      @media (prefers-color-scheme: dark) {
-        html:not(.dark) {
-          --color-bg: #0f172a;
-          --color-surface: #1e293b;
-          --color-text-light: #f1f5f9;
-          --color-text-primary: #cbd5e1;
-          --color-text-secondary: #94a3b8;
-        }
+      /* Template-specific styles */
+      .classic-template {
+          font-family: 'Georgia', 'Times New Roman', serif;
+      }
+
+      .classic-template .text-gradient {
+          background: linear-gradient(135deg, #374151, #1f2937);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+      }
+
+      .classic-template .text-shadow-lg {
+          text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .classic-template .text-shadow-md {
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .classic-template .text-shadow-sm {
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Modern Template Styles */
+      .modern-template {
+          font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+      }
+
+      .modern-template .animate-fade-in-up {
+          animation: fadeInUp 0.8s ease-out forwards;
+      }
+
+      .modern-template .delay-300 {
+          animation-delay: 0.3s;
+      }
+
+      .modern-template .delay-500 {
+          animation-delay: 0.5s;
+      }
+
+      .modern-template .delay-700 {
+          animation-delay: 0.7s;
+      }
+
+      .modern-template .animate-gradient {
+          background: linear-gradient(-45deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6);
+          background-size: 400% 400%;
+          animation: gradientShift 3s ease infinite;
+      }
+
+      @keyframes fadeInUp {
+          from {
+              opacity: 0;
+              transform: translateY(30px);
+          }
+          to {
+              opacity: 1;
+              transform: translateY(0);
+          }
+      }
+
+      @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+      }
+
+      /* Gallery Template Styles */
+      .gallery-template {
+          font-family: 'Poppins', 'Segoe UI', sans-serif;
+      }
+
+      .gallery-template .animate-pulse {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      @keyframes pulse {
+          0%, 100% {
+              opacity: 1;
+          }
+          50% {
+              opacity: 0.5;
+          }
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+          .classic-template h1 {
+              font-size: 2.5rem;
+          }
+
+          .modern-template h1 {
+              font-size: 3rem;
+          }
+
+          .gallery-template h1 {
+              font-size: 3rem;
+          }
+      }
+
+      /* Smooth scrolling */
+      html {
+          scroll-behavior: smooth;
+      }
+
+      /* Custom scrollbar for templates */
+      .classic-template::-webkit-scrollbar {
+          width: 8px;
+      }
+
+      .classic-template::-webkit-scrollbar-track {
+          background: #f1f5f9;
+      }
+
+      .classic-template::-webkit-scrollbar-thumb {
+          background: #94a3b8;
+          border-radius: 4px;
+      }
+
+      .classic-template::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+      }
+
+      .modern-template::-webkit-scrollbar {
+          width: 8px;
+      }
+
+      .modern-template::-webkit-scrollbar-track {
+          background: #1e293b;
+      }
+
+      .modern-template::-webkit-scrollbar-thumb {
+          background: #475569;
+          border-radius: 4px;
+      }
+
+      .modern-template::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+      }
+
+      .gallery-template::-webkit-scrollbar {
+          width: 8px;
+      }
+
+      .gallery-template::-webkit-scrollbar-track {
+          background: #fef3c7;
+      }
+
+      .gallery-template::-webkit-scrollbar-thumb {
+          background: #f59e0b;
+          border-radius: 4px;
+      }
+
+      .gallery-template::-webkit-scrollbar-thumb:hover {
+          background: #d97706;
       }
     </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1108,8 +1059,7 @@
     });
   });
 </script>
-<link rel="stylesheet" href="/index.css">
-</head>
+  </head>
   <body class="bg-brand-bg text-brand-text-primary">
     <div id="root"></div>
     <style id="public-theme-style"></style>

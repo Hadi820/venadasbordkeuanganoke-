@@ -300,7 +300,7 @@ const LeadCard: React.FC<{
     const renderActions = () => {
         if (lead.status === LeadStatus.DISCUSSION) {
             return (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 leads-card-actions">
                     <button onClick={(e) => { e.stopPropagation(); onShare('package'); }} className="button-secondary !p-2.5" title="Bagikan Paket"><Share2Icon className="w-4 h-4"/></button>
                     <button onClick={(e) => { e.stopPropagation(); onNextStatus(); }} className="button-primary !text-xs !px-4 !py-2.5 inline-flex items-center gap-1.5">Follow Up <ChevronRightIcon className="w-4 h-4"/></button>
                 </div>
@@ -308,7 +308,7 @@ const LeadCard: React.FC<{
         }
         if (lead.status === LeadStatus.FOLLOW_UP) {
             return (
-                 <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2 leads-card-actions">
                     <button onClick={(e) => { e.stopPropagation(); onShare('booking'); }} className="button-secondary !p-2.5" title="Kirim Form Booking"><SendIcon className="w-4 h-4"/></button>
                     <button onClick={(e) => { e.stopPropagation(); onNextStatus(); }} className="button-primary !text-xs !px-4 !py-2.5 inline-flex items-center gap-1.5">Konversi <CheckCircleIcon className="w-4 h-4"/></button>
                 </div>
@@ -322,10 +322,10 @@ const LeadCard: React.FC<{
             draggable
             onDragStart={e => onDragStart(e, lead.id)}
             onClick={onClick}
-            className="p-4 bg-brand-surface rounded-xl cursor-grab border-l-4 shadow-md hover:shadow-lg transition-shadow"
+            className="p-4 bg-brand-surface rounded-xl cursor-grab border-l-4 shadow-md hover:shadow-lg transition-shadow leads-card"
             style={{ borderLeftColor: statusConfig[lead.status].color }}
         >
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start leads-card-header">
                 <p className="font-semibold text-sm text-brand-text-light">{lead.name}</p>
                 <div className="flex items-center gap-2">
                     {isHot && <span className="text-xs font-bold" title="Prospek baru (24 jam terakhir)">🔥</span>}
@@ -337,7 +337,7 @@ const LeadCard: React.FC<{
                 <span className="flex items-center gap-1.5">{getContactChannelIcon(lead.contactChannel)} {getDaysSince(lead.date)}</span>
                 {lead.location && <span className="flex items-center gap-1"><MapPinIcon className="w-3 h-3"/>{lead.location}</span>}
             </div>
-            <div className="mt-3 pt-3 border-t border-brand-border/50 flex justify-end">
+            <div className="mt-3 pt-3 border-t border-brand-border/50 flex justify-end leads-card-actions">
                 {renderActions()}
             </div>
         </div>
@@ -683,16 +683,38 @@ export const Leads: React.FC<LeadsProps> = ({
                     <PageHeader title="Manajemen Prospek" subtitle="Kelola calon klien Anda dari kontak pertama hingga menjadi proyek."><button onClick={() => setIsInfoModalOpen(true)} className="button-secondary">Pelajari Halaman Ini</button></PageHeader>
                     <AILeadsInsight leads={leads} projects={projects} handleNavigation={handleNavigation} />
                     <LeadsAnalytics leads={leads} onStatCardClick={handleStatCardClick} />
-                    <div className="bg-brand-surface p-4 rounded-xl shadow-lg border border-brand-border flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="bg-brand-surface p-4 rounded-xl shadow-lg border border-brand-border flex flex-col md:flex-row justify-between items-center gap-4 leads-filter-section">
                         <div className="input-group flex-grow !mt-0 w-full md:w-auto"><input type="search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5" placeholder=" " /><label className="input-label">Cari prospek...</label></div>
-                        <div className="flex items-center gap-4 w-full md:w-auto"><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full" /><span className="text-brand-text-secondary">-</span><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full" /><select value={sourceFilter} onChange={e => setSourceFilter(e.target.value as any)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full"><option value="all">Semua Sumber</option>{Object.values(ContactChannel).map(s => <option key={s} value={s}>{s}</option>)}</select><button onClick={toggleHiddenColumns} className="button-secondary text-sm px-3 py-2.5 inline-flex items-center gap-2 flex-shrink-0" title={hiddenColumns.has(LeadStatus.CONVERTED) ? 'Tampilkan Kolom Selesai' : 'Sembunyikan Kolom Selesai'}><EyeIcon className="w-5 h-5"/></button><button onClick={() => setIsShareModalOpen(true)} className="button-secondary p-2.5" title="Bagikan Form Prospek"><Share2Icon className="w-5 h-5"/></button><button onClick={() => handleOpenModal('add')} className="button-primary p-2.5" title="Tambah Prospek Manual"><PlusIcon className="w-5 h-5"/></button></div>
+                        <div className="flex items-center gap-4 w-full md:w-auto leads-filter-row">
+                            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full" />
+                            <span className="text-brand-text-secondary flex-shrink-0">-</span>
+                            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full" />
+                            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value as any)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full leads-source-filter">
+                                <option value="all">Semua Sumber</option>
+                                {Object.values(ContactChannel).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <div className="flex items-center gap-2 w-full leads-filter-buttons">
+                                <button onClick={toggleHiddenColumns} className="button-secondary text-sm px-3 py-2.5 inline-flex items-center gap-2 flex-shrink-0" title={hiddenColumns.has(LeadStatus.CONVERTED) ? 'Tampilkan Kolom Selesai' : 'Sembunyikan Kolom Selesai'}>
+                                    <EyeIcon className="w-5 h-5"/>
+                                </button>
+                                <button onClick={() => setIsShareModalOpen(true)} className="button-secondary p-2.5" title="Bagikan Form Prospek">
+                                    <Share2Icon className="w-5 h-5"/>
+                                </button>
+                                <button onClick={() => handleOpenModal('add')} className="button-primary p-2.5" title="Tambah Prospek Manual">
+                                    <PlusIcon className="w-5 h-5"/>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4">
                         {visibleLeadColumns.map(([status, leadItems]) => {
                             const statusInfo = statusConfig[status as LeadStatus];
                             return (
-                                <div key={status} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, status as LeadStatus)} className="w-80 flex-shrink-0 bg-brand-bg rounded-2xl border border-brand-border flex flex-col">
-                                    <div className="p-4 font-semibold text-brand-text-light border-b-2 flex justify-between items-center sticky top-0 bg-brand-bg/80 backdrop-blur-sm rounded-t-2xl z-10" style={{ borderColor: statusInfo.color }}><span>{statusInfo.title}</span><span className="text-sm font-normal bg-brand-surface text-brand-text-secondary px-2.5 py-1 rounded-full">{leadItems.length}</span></div>
+                                <div key={status} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, status as LeadStatus)} className="w-80 flex-shrink-0 bg-brand-bg rounded-2xl border border-brand-border flex flex-col leads-column-container">
+                                    <div className="p-4 font-semibold text-brand-text-light border-b-2 flex justify-between items-center sticky top-0 bg-brand-bg/80 backdrop-blur-sm rounded-t-2xl z-10 leads-column-header" style={{ borderColor: statusInfo.color }}>
+                                        <span>{statusInfo.title}</span>
+                                        <span className="text-sm font-normal bg-brand-surface text-brand-text-secondary px-2.5 py-1 rounded-full">{leadItems.length}</span>
+                                    </div>
                                     <div className="p-3 space-y-3 h-[calc(100vh-550px)] overflow-y-auto">{leadItems.map(lead => <LeadCard key={lead.id} lead={lead} onDragStart={handleDragStart} onClick={() => handleOpenModal('edit', lead)} onNextStatus={() => handleNextStatus(lead.id, lead.status)} onShare={(type) => setShareModalState({ type, lead })} />)}</div>
                                 </div>
                             );

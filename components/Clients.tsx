@@ -14,7 +14,13 @@ import { createTransaction as createTransactionRow, updateCardBalance } from '..
 import { findCardIdByMeta } from '../services/cards';
 
 const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+    // Ensure proper Indonesian currency formatting with correct decimal separator
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(amount);
 }
 
 const getPaymentStatusClass = (status: PaymentStatus | null) => {
@@ -579,6 +585,7 @@ interface ClientsProps {
     setPromoCodes: React.Dispatch<React.SetStateAction<PromoCode[]>>;
     onSignInvoice: (projectId: string, signatureDataUrl: string) => void;
     onSignTransaction: (transactionId: string, signatureDataUrl: string) => void;
+    onRecordPayment: (projectId: string, amount: number, destinationCardId: string) => Promise<void>;
     addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => void;
 }
 
@@ -1229,9 +1236,19 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
             const selectedPackage = packages.find(p => p.id === project.packageId);
             const subtotal = project.totalCost + (project.discountAmount || 0);
             const remaining = project.totalCost - project.amountPaid;
+
+            // Original package name - no cleaning
+            const originalPackageName = selectedPackage?.name || project.packageName;
+
+            // Original add-on names - no cleaning, show all duplicates as they are
+            const originalAddOns = project.addOns || [];
+
+            // Generate proper invoice number
+            const invoiceNumber = project.id ? `INV-${project.id.slice(-6)}` : 'INV-XXXXXX';
+
             return (
                 <div id="invoice-content" className="p-1">
-                    <div className="printable-content bg-slate-50 font-sans text-slate-800 printable-area">
+                    <div className="printable-content print-invoice bg-slate-50 font-sans text-slate-800 printable-area">
                         <div className="max-w-4xl mx-auto bg-white p-8 sm:p-12 shadow-lg">
                             <header className="flex justify-between items-start mb-12">
                                 <div>
@@ -1245,8 +1262,8 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
                                 </div>
                                 <div className="text-right">
                                     <h2 className="text-2xl font-bold uppercase text-slate-400 tracking-widest">Invoice</h2>
-                                    <p className="text-sm text-slate-500 mt-1">No: <span className="font-semibold text-slate-700">INV-{project.id.slice(-6)}</span></p>
-                                    <p className="text-sm text-slate-500">Tanggal: <span className="font-semibold text-slate-700">{new Date().toLocaleDateString('id-ID')}</span></p>
+                                    <p className="text-sm text-slate-500 mt-1">No: <span className="font-semibold text-slate-700">{invoiceNumber}</span></p>
+                                    <p className="text-sm text-slate-500">Tanggal: <span className="font-semibold text-slate-700">{new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></p>
                                 </div>
                             </header>
 
@@ -1256,29 +1273,114 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
                             </section>
 
                             <section className="mb-12">
-                                <div className="bg-blue-600 text-white p-6 rounded-xl printable-bg-blue printable-text-white"><h3 className="text-xs font-semibold uppercase text-blue-200 mb-2">Sisa Tagihan</h3><p className="font-extrabold text-2xl lg:text-3xl tracking-tight break-all">{formatCurrency(remaining)}</p><p className="text-sm text-blue-200 mt-1">Jatuh Tempo: {formatDate(project.date)}</p></div>
+                                <div className="bg-blue-600 text-white p-6 rounded-xl printable-bg-blue printable-text-white"><h3 className="text-xs font-semibold uppercase text-blue-200 mb-2">Sisa Tagihan</h3><p className="font-extrabold text-2xl lg:text-3xl tracking-tight break-all">{formatCurrency(remaining)}</p><p className="text-sm text-blue-200 mt-1">Jatuh Tempo: {new Date(project.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
                             </section>
 
-                            <section><table className="w-full text-left responsive-table">
-                                <thead><tr className="border-b-2 border-slate-200"><th className="p-3 text-sm font-semibold uppercase text-slate-500">Deskripsi</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-center">Jml</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right">Harga</th><th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right">Total</th></tr></thead>
-                                <tbody>
-                                    <tr><td data-label="Deskripsi" className="p-3 align-top"><p className="font-semibold text-slate-800">{project.packageName}</p><p className="text-xs text-slate-500">{selectedPackage?.digitalItems.join(', ')}</p></td><td data-label="Jml" className="p-3 text-center align-top">1</td><td data-label="Harga" className="p-3 text-right align-top">{formatCurrency(selectedPackage?.price || 0)}</td><td data-label="Total" className="p-3 text-right align-top">{formatCurrency(selectedPackage?.price || 0)}</td></tr>
-                                    {project.addOns.map(addon => (<tr key={addon.id}><td data-label="Deskripsi" className="p-3 text-slate-600 align-top">- {addon.name}</td><td data-label="Jml" className="p-3 text-center align-top">1</td><td data-label="Harga" className="p-3 text-right align-top">{formatCurrency(addon.price)}</td><td data-label="Total" className="p-3 text-right align-top">{formatCurrency(addon.price)}</td></tr>))}
+                            <section><table className="w-full text-left responsive-table invoice-table">
+                                <thead className="invoice-table-header">
+                                    <tr className="border-b-2 border-slate-200">
+                                        <th className="p-3 text-sm font-semibold uppercase text-slate-500 text-left" data-label="Deskripsi">Deskripsi</th>
+                                        <th className="p-3 text-sm font-semibold uppercase text-slate-500 text-center min-w-[50px]" data-label="Jml">Jml</th>
+                                        <th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right min-w-[90px]" data-label="Harga">Harga Satuan</th>
+                                        <th className="p-3 text-sm font-semibold uppercase text-slate-500 text-right min-w-[90px]" data-label="Total">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="invoice-table-body">
+                                    <tr className="border-b border-slate-100 hover:bg-slate-50">
+                                        <td data-label="Deskripsi" className="p-3 align-top">
+                                            <div className="invoice-item-description">
+                                                <p className="font-semibold text-slate-800 text-sm leading-relaxed">{originalPackageName}</p>
+                                                {selectedPackage?.digitalItems && selectedPackage.digitalItems.length > 0 && (
+                                                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                                        {selectedPackage.digitalItems.join(', ')}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td data-label="Jml" className="p-3 text-center align-top">
+                                            <span className="font-semibold text-slate-700">1</span>
+                                        </td>
+                                        <td data-label="Harga" className="p-3 text-right align-top">
+                                            <span className="font-semibold text-slate-700 tabular-nums">
+                                                {formatCurrency(selectedPackage?.price || 0)}
+                                            </span>
+                                        </td>
+                                        <td data-label="Total" className="p-3 text-right align-top">
+                                            <span className="font-bold text-slate-800 tabular-nums">
+                                                {formatCurrency(selectedPackage?.price || 0)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {originalAddOns.filter(addon => addon.name && addon.name.trim()).map((addon, index) => (
+                                        <tr key={addon.id || index} className="border-b border-slate-100 hover:bg-slate-50">
+                                            <td data-label="Deskripsi" className="p-3 align-top">
+                                                <div className="invoice-item-description">
+                                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                                        - {addon.name}
+                                                    </p>
+                                                </div>
+                                            </td>
+                                            <td data-label="Jml" className="p-3 text-center align-top">
+                                                <span className="text-slate-600">1</span>
+                                            </td>
+                                            <td data-label="Harga" className="p-3 text-right align-top">
+                                                <span className="text-slate-600 tabular-nums">
+                                                    {formatCurrency(addon.price)}
+                                                </span>
+                                            </td>
+                                            <td data-label="Total" className="p-3 text-right align-top">
+                                                <span className="font-semibold text-slate-700 tabular-nums">
+                                                    {formatCurrency(addon.price)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table></section>
 
                             <section className="mt-12 avoid-break totals-section">
                                 <div className="flex flex-col-reverse sm:flex-row justify-between gap-8 doc-footer-flex">
-                                    <div className="w-full sm:w-2/5"><h4 className="font-semibold text-slate-600">Tanda Tangan</h4>{project.invoiceSignature ? (<img src={project.invoiceSignature} alt="Tanda Tangan" className="h-20 mt-2 object-contain" />) : (<div className="h-20 mt-2 flex items-center justify-center text-xs text-slate-400 italic border border-dashed rounded-lg">Belum Ditandatangani</div>)}</div>
-                                    <div className="w-full sm:w-2/5 space-y-2 text-sm">
-                                        <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-semibold text-slate-800">{formatCurrency(subtotal)}</span></div>
-                                        {project.discountAmount && project.discountAmount > 0 && (<div className="flex justify-between"><span className="text-slate-500">Diskon</span><span className="font-semibold text-green-600 print-text-green">-{formatCurrency(project.discountAmount)}</span></div>)}
-                                        <div className="flex justify-between"><span className="text-slate-500">Telah Dibayar</span><span className="font-semibold text-slate-800">-{formatCurrency(project.amountPaid)}</span></div>
-                                        <div className="flex justify-between font-bold text-lg text-slate-900 border-t-2 border-slate-300 pt-2 mt-2"><span>Sisa Tagihan</span><span>{formatCurrency(remaining)}</span></div>
+                                    <div className="w-full sm:w-2/5 invoice-signature-section">
+                                        <h4 className="font-semibold text-slate-600 mb-3">Tanda Tangan</h4>
+                                        {project.invoiceSignature ? (
+                                            <img src={project.invoiceSignature} alt="Tanda Tangan" className="h-20 mt-2 object-contain border-b border-slate-300" />
+                                        ) : (
+                                            <div className="h-20 mt-2 flex items-center justify-center text-xs text-slate-400 italic border border-dashed border-slate-300 rounded-lg">
+                                                Belum Ditandatangani
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="w-full sm:w-2/5 space-y-3 text-sm invoice-totals">
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-slate-500 font-medium">Subtotal</span>
+                                            <span className="font-semibold text-slate-800 tabular-nums">
+                                                {formatCurrency(subtotal)}
+                                            </span>
+                                        </div>
+                                        {project.discountAmount && project.discountAmount > 0 && (
+                                            <div className="flex justify-between items-center py-1">
+                                                <span className="text-slate-500 font-medium">Diskon</span>
+                                                <span className="font-semibold text-green-600 print-text-green tabular-nums">
+                                                    -{formatCurrency(project.discountAmount)}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-slate-500 font-medium">Telah Dibayar</span>
+                                            <span className="font-semibold text-slate-800 tabular-nums">
+                                                -{formatCurrency(project.amountPaid)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 mt-3 pt-3 border-t-2 border-slate-300">
+                                            <span className="font-bold text-lg text-slate-900">Sisa Tagihan</span>
+                                            <span className="font-bold text-lg text-slate-900 tabular-nums">
+                                                {formatCurrency(remaining)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
-                            
+
                             <footer className="mt-12 pt-8 border-t-2 border-slate-200 avoid-break signature-section">
                                 {userProfile.termsAndConditions && (
                                     <div className="mb-8">
@@ -1298,7 +1400,7 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
             const project = transaction.projectId ? projects.find(p => p.id === transaction.projectId) : null;
             return (
                 <div id="receipt-content" className="p-1">
-                     <div className="printable-content bg-slate-50 font-sans text-slate-800 printable-area avoid-break">
+                     <div className="printable-content print-receipt bg-slate-50 font-sans text-slate-800 printable-area avoid-break">
                         <div className="max-w-md mx-auto bg-white p-8 shadow-lg rounded-xl">
                             <header className="text-center mb-8">
                                 <h1 className="text-2xl font-bold text-slate-900">KWITANSI PEMBAYARAN</h1>
@@ -1430,19 +1532,19 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
                 </div>
             </div>
     
-            <div className="bg-brand-surface p-4 rounded-xl shadow-lg border border-brand-border flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="bg-brand-surface p-4 rounded-xl shadow-lg border border-brand-border flex flex-col md:flex-row justify-between items-center gap-4 mobile-filter-section">
                 <div className="input-group flex-grow !mt-0 w-full md:w-auto">
                     <input type="search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5" placeholder=" " />
                     <label className="input-label">Cari klien (nama, email, telepon)...</label>
                 </div>
-                <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex items-center gap-4 w-full md:w-auto search-filter-row">
                     <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full" />
                     <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full" />
                     <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-field !rounded-lg !border !bg-brand-bg p-2.5 w-full">
                         <option value="Semua Status">Semua Status</option>
                         {Object.values(PaymentStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <button onClick={handleDownloadClients} className="button-secondary p-2.5" title="Unduh data klien"><DownloadIcon className="w-5 h-5"/></button>
+                    <button onClick={handleDownloadClients} className="button-secondary p-2.5 flex-shrink-0" title="Unduh data klien"><DownloadIcon className="w-5 h-5"/></button>
                 </div>
             </div>
     
@@ -1525,13 +1627,18 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
                         const baseHref = `${window.location.origin}${window.location.pathname}`;
                         const title = docTitle || document.title;
                         const extraStyles = `
+                            <link rel="preconnect" href="https://fonts.googleapis.com">
+                            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                            <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
                             <style>
-                              @page { size: A4; margin: 12mm; }
-                              html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                              @page { size: A4; margin: 10mm; }
+                              html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: 'Manrope', sans-serif !important; }
                               .print-a4 { width: 210mm; margin: 0 auto; }
+                              .fit-to-page { transform-origin: top left !important; }
+                              .fit-to-page[data-fit-scale="true"] { transform: var(--fit-scale) !important; }
                             </style>
-                        `;
-                        const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title><base href="${baseHref}">${headStyles}${extraStyles}</head><body class="print-a4"><div class="printable-area">${area.innerHTML}</div></body></html>`;
+                          `;
+                        const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title><base href="${baseHref}">${headStyles}${extraStyles}</head><body class="print-a4"><div class="printable-area"><div class="fit-to-page" id="fitWrapper">${area.innerHTML}</div></div><script>(function(){try{function mmToPx(mm){var el=document.createElement('div');el.style.width=mm+'mm';el.style.position='absolute';el.style.visibility='hidden';document.body.appendChild(el);var px=el.getBoundingClientRect().width;document.body.removeChild(el);return px;}var pageWidthMM=210,pageHeightMM=297;var marginTopMM=10,marginBottomMM=10,marginLeftMM=10,marginRightMM=10;var printableWidthPx=mmToPx(pageWidthMM - marginLeftMM - marginRightMM);var printableHeightPx=mmToPx(pageHeightMM - marginTopMM - marginBottomMM);var wrapper=document.getElementById('fitWrapper');if(wrapper){var rect=wrapper.getBoundingClientRect();var scaleX=printableWidthPx/rect.width;var scaleY=printableHeightPx/rect.height;var scale=Math.min(1,scaleX,scaleY);wrapper.setAttribute('data-fit-scale','true');document.documentElement.style.setProperty('--fit-scale','scale('+scale+')');}}catch(e){}})();</script></body></html>`;
                         const w = window.open('', '_blank', 'noopener,noreferrer');
                         if (!w) { window.print(); return; }
                         w.document.open();
@@ -1547,14 +1654,16 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
             })()}
 
             <Modal isOpen={!!documentToView} onClose={() => setDocumentToView(null)} title={documentToView ? (documentToView.type === 'invoice' ? 'Invoice' : 'Tanda Terima') : ''} size="3xl">
-                <div className="printable-area max-h-[70vh] overflow-y-auto">{renderDocumentBody()}</div>
+                <div id="invoice" className="printable-area max-h-[70vh] overflow-y-auto">{renderDocumentBody()}</div>
                 <div className="mt-6 text-right non-printable space-x-2 border-t border-brand-border pt-4">
                     {documentToView && !documentToView[documentToView.type === 'invoice' ? 'project' : 'transaction'].vendorSignature && (
                         <button type="button" onClick={() => setIsSignatureModalOpen(true)} className="button-secondary">Tanda Tangani</button>
                     )}
                     <PrintButton 
+                      areaId="invoice"
                       label={"Cetak Penuh"}
                       title={documentToView ? (documentToView.type === 'invoice' ? `Invoice - ${documentToView.project?.projectName || ''}` : 'Tanda Terima') : 'Dokumen'}
+                      directPrint={true}
                     />
                 </div>
             </Modal>
@@ -1589,22 +1698,8 @@ const Clients: React.FC<ClientsProps> = ({ clients, setClients, projects, setPro
                     </div>
                 </Modal>
             )}
-             <Modal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} title="Panduan Halaman Klien">
-                <div className="space-y-4 text-sm text-brand-text-primary">
-                    <p>Halaman ini adalah pusat untuk semua hal yang berkaitan dengan klien Anda.</p>
-                    <ul className="list-disc list-inside space-y-2">
-                        <li><strong>Statistik Kunci:</strong> Di bagian atas, Anda akan menemukan ringkasan cepat tentang jumlah klien, total piutang, dan lokasi teratas.</li>
-                        <li><strong>Visualisasi Data:</strong> Grafik donat menunjukkan distribusi status klien Anda, sementara grafik batang melacak akuisisi klien baru dari waktu ke waktu.</li>
-                        <li><strong>Daftar Klien:</strong> Tabel utama menampilkan semua klien Anda. Anda dapat mencari, memfilter berdasarkan tanggal proyek atau status pembayaran.</li>
-                        <li><strong>Aksi Cepat:</strong>
-                            <ul className="list-['-_'] list-inside ml-4">
-                                <li><strong>Lihat Detail (<EyeIcon className="w-4 h-4 inline-block"/>):</strong> Buka panel detail untuk melihat semua proyek, pembayaran, dan kontrak yang terkait dengan klien.</li>
-                                <li><strong>Tambah Proyek (<PlusIcon className="w-4 h-4 inline-block"/>):</strong> Tambahkan proyek baru untuk klien yang sudah ada dengan cepat.</li>
-                            </ul>
-                        </li>
-                        <li><strong>Tambah Klien & Proyek:</strong> Gunakan tombol di kanan atas untuk membuat klien baru beserta proyek pertamanya secara bersamaan.</li>
-                    </ul>
-                </div>
+             <Modal isOpen={isSignatureModalOpen} onClose={() => setIsSignatureModalOpen(false)} title="Bubuhkan Tanda Tangan Anda">
+                <SignaturePad onClose={() => setIsSignatureModalOpen(false)} onSave={handleSaveSignature} />
             </Modal>
              {billingChatModal && (
                 <BillingChatModal

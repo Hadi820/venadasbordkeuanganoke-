@@ -41,7 +41,12 @@ function fromRow(row: any): Profile {
     contractTemplate: row.contract_template || undefined,
     logoBase64: row.logo_base64 || undefined,
     brandColor: row.brand_color || undefined,
-    publicPageConfig: {
+    publicPageConfig: row.public_page_config ? {
+      template: row.public_page_config.template || 'classic',
+      title: row.public_page_config.title || 'Vena Pictures',
+      introduction: row.public_page_config.introduction || '',
+      galleryImages: row.public_page_config.galleryImages || [],
+    } : {
       template: (row.public_page_template || 'classic') as any,
       title: row.public_page_title || 'Vena Pictures',
       introduction: row.public_page_introduction || '',
@@ -79,6 +84,8 @@ function toRow(p: Partial<Profile>): any {
     ...(p.logoBase64 !== undefined ? { logo_base64: p.logoBase64 } : {}),
     ...(p.brandColor !== undefined ? { brand_color: p.brandColor } : {}),
     ...(p.publicPageConfig !== undefined ? {
+      public_page_config: p.publicPageConfig,
+      // Also update legacy columns for backward compatibility
       public_page_template: p.publicPageConfig.template,
       public_page_title: p.publicPageConfig.title,
       public_page_introduction: p.publicPageConfig.introduction,
